@@ -52,10 +52,12 @@ defineOptions({
 const isComponentReady = ref(false)
 const editor = ref(null)
 const store = useStore()
-const classes = ["__studio_component__", "outline-none", "select-none"]
 
 const canvasProps = inject("canvasProps") as CanvasProps
 
+const classes = computed(() => {
+	return ["__studio_component__", "outline-none", "select-none", props.block.getClasses()]
+})
 const styles = computed(() => {
 	return props.block.getStyles()
 })

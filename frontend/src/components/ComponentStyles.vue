@@ -36,8 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { TextInput } from "frappe-ui"
-import Block from "@/utils/block"
+import { TextInput, Textarea } from "frappe-ui"
 import OptionToggle from "@/components/OptionToggle.vue"
 import useStore from "@/store"
 import blockController from "@/utils/blockController"
@@ -47,13 +46,6 @@ import BlockPositionHandler from "@/components/BlockPositionHandler.vue"
 import CollapsibleSection from "@/components/CollapsibleSection.vue"
 import DimensionInput from "@/components/DimensionInput.vue"
 import InlineInput from "@/components/InlineInput.vue"
-
-const props = defineProps({
-	block: {
-		type: Block,
-		required: false,
-	},
-})
 
 const store = useStore()
 
@@ -269,6 +261,25 @@ const spacingSectionProperties = [
 	},
 ]
 
+const classes = [
+	{
+		component: Textarea,
+		getProps: () => {
+			return {
+				placeholder: "Add tailwind classes separated by spaces",
+				modelValue: blockController.getClasses(),
+			}
+		},
+		events: {
+			"update:modelValue": (val: string) => {
+				val = val || ""
+				const classes = val.split(",").map((c) => c.trim())
+				blockController.setClasses(classes)
+			},
+		},
+	},
+]
+
 const sections = [
 	{
 		name: "Layout",
@@ -302,6 +313,11 @@ const sections = [
 				!blockController.getStyle("marginBottom") &&
 				!blockController.getStyle("paddingBottom"),
 		),
+	},
+	{
+		name: "Classes",
+		properties: classes,
+		condition: () => !blockController.multipleBlocksSelected(),
 	},
 ] as PropertySection[]
 </script>

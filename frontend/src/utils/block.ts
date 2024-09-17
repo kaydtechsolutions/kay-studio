@@ -18,6 +18,7 @@ class Block implements BlockOptions {
 	baseStyles: BlockStyleMap
 	mobileStyles: BlockStyleMap
 	tabletStyles: BlockStyleMap
+	classes: Array<string>
 
 	constructor(options: BlockOptions) {
 		this.componentName = options.componentName
@@ -26,6 +27,7 @@ class Block implements BlockOptions {
 		this.baseStyles = reactive(options.baseStyles || {})
 		this.mobileStyles = reactive(options.mobileStyles || {});
 		this.tabletStyles = reactive(options.tabletStyles || {});
+		this.classes = options.classes || []
 
 		// generate ID
 		if (!options.componentId) {
@@ -125,6 +127,10 @@ class Block implements BlockOptions {
 			return;
 		}
 		styleObj[style] = value
+	}
+
+	getClasses() {
+		return this.classes.length ? this.classes.join(" ") : ""
 	}
 
 	toggleVisibility() {
