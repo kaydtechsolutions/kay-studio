@@ -7,13 +7,18 @@
         "label": {
           "type": "string"
         },
-        "action": {
-          "$comment": "() => void"
+        "route_to": {
+          "type": "string"
+        },
+        "selected": {
+          "type": "boolean"
+        },
+        "featherIcon": {
+          "type": "string"
         }
       },
       "required": [
-        "label",
-        "action"
+        "label"
       ]
     }
   }
