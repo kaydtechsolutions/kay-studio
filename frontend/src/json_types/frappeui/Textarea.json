@@ -1,31 +1,10 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$ref": "#/definitions/TextareaProps",
   "definitions": {
-    "TextInputTypes": {
-      "type": "string",
-      "enum": [
-        "date",
-        "datetime-local",
-        "email",
-        "file",
-        "month",
-        "number",
-        "password",
-        "search",
-        "tel",
-        "text",
-        "time",
-        "url",
-        "week",
-        "range"
-      ]
-    },
-    "TextInputProps": {
+    "TextareaProps": {
       "type": "object",
       "properties": {
-        "type": {
-          "$ref": "#/definitions/TextInputTypes"
-        },
         "size": {
           "type": "string",
           "enum": [
@@ -52,16 +31,16 @@
           "type": "string"
         },
         "modelValue": {
-          "type": [
-            "string",
-            "number"
-          ]
+          "type": "string"
         },
         "debounce": {
           "type": "number"
         },
-        "required": {
-          "type": "boolean"
+        "rows": {
+          "type": "number"
+        },
+        "label": {
+          "type": "string"
         }
       },
       "additionalProperties": false
