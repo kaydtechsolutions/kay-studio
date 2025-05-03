@@ -9,8 +9,19 @@
 				variant="outline"
 				placeholder="Search component"
 				v-model="componentFilter"
-				@input="(e: Event) => (componentFilter = (e.target as HTMLInputElement).value)"
-			/>
+			>
+				<template #prefix>
+					<FeatherIcon name="search" class="h-4 w-4 text-gray-500" />
+				</template>
+
+				<template #suffix v-if="componentFilter">
+					<FeatherIcon
+						name="x"
+						class="h-4 w-4 cursor-pointer text-gray-500 hover:text-gray-800"
+						@click="componentFilter = ''"
+					/>
+				</template>
+			</TextInput>
 		</div>
 
 		<div class="grid grid-cols-3 items-center gap-x-2 gap-y-4">

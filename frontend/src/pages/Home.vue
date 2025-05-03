@@ -22,15 +22,23 @@
 			<div class="flex w-full flex-row justify-between">
 				<div class="text-lg font-semibold text-gray-800">All Apps</div>
 				<TextInput
-					class="w-48"
+					class="w-50"
 					placeholder="Search"
 					type="text"
 					variant="outline"
 					autofocus
-					@input="(e: Event) => (searchFilter = (e.target as HTMLInputElement).value)"
+					v-model="searchFilter"
 				>
 					<template #prefix>
 						<FeatherIcon name="search" class="h-4 w-4 text-gray-500" />
+					</template>
+
+					<template #suffix v-if="searchFilter">
+						<FeatherIcon
+							name="x"
+							class="h-4 w-4 cursor-pointer text-gray-500 hover:text-gray-800"
+							@click="searchFilter = ''"
+						/>
 					</template>
 				</TextInput>
 			</div>
