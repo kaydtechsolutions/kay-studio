@@ -21,7 +21,7 @@ export function useCanvasUtils(
 	// canvas positioning
 	const containerBound = reactive(useElementBounding(canvasContainer));
 	const canvasBound = reactive(useElementBounding(canvas));
-	const setScaleAndTranslate = async () => {
+	const setScaleAndTranslate = async (persist = true, overrideScale = true) => {
 		if (document.readyState !== "complete") {
 			await new Promise((resolve) => {
 				window.addEventListener("load", resolve);
@@ -35,7 +35,12 @@ export function useCanvasUtils(
 		const containerWidth = containerBound.width;
 		const canvasWidth = canvasBound.width / canvasProps.scale;
 
-		canvasProps.scale = containerWidth / (canvasWidth + paddingX * 2);
+		if (overrideScale) {
+			canvasProps.scale = containerWidth / (canvasWidth + paddingX * 2);
+		}
+		if (persist) {
+			localStorage.setItem("studioCanvasZoom", canvasProps.scale.toString())
+		}
 
 		canvasProps.translateX = 0;
 		canvasProps.translateY = 0;

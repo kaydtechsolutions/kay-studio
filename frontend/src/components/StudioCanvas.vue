@@ -19,6 +19,8 @@
 		<div
 			class="fixed flex gap-40"
 			ref="canvas"
+			@mouseenter="isCanvasActive = true"
+ 			@mouseleave="isCanvasActive = false"
 			:style="{
 				transformOrigin: 'top center',
 				transform: `scale(${canvasProps.scale}) translate(${canvasProps.translateX}px, ${canvasProps.translateY}px)`,
@@ -78,7 +80,7 @@
 			v-show="!canvasProps.panning"
 		>
 			<!-- Zoom Out -->
-			<span title="Zoom Out">
+			<span title="Zoom Out (-)">
 				<FeatherIcon name="minus" class="h-4 w-4 cursor-pointer" @click="zoomOut" />
 			</span>
 
@@ -86,12 +88,12 @@
 			{{ Math.round(canvasProps.scale * 100) + "%" }}
 
 			<!-- Zoom In -->
-			<span title="Zoom In">
+			<span title="Zoom In (+)">
 				<FeatherIcon name="plus" class="h-4 w-4 cursor-pointer" @click="zoomIn" />
 			</span>
 
 			<!-- Fit to Screen -->
-			<span title="Fit to Screen" >
+			<span title="Fit to Screen (0)" >
 				<FeatherIcon name="maximize" class="h-4 w-4 cursor-pointer" @click="setScaleAndTranslate"/>
 			</span>
 
@@ -100,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import { Ref, ref, watch, reactive, computed, onMounted, provide } from "vue"
+import { Ref, ref, watch, reactive, computed, onMounted, provide, onBeforeUnmount } from "vue"
 import { LoadingIndicator } from "frappe-ui"
 import StudioComponent from "@/components/StudioComponent.vue"
 
@@ -130,6 +132,7 @@ const canvasContainer = ref(null)
 const canvas = ref<HTMLElement | null>(null)
 const overlay = ref(null)
 const showBlocks = ref(false)
+const isCanvasActive = ref(false)
 
 const canvasProps = reactive({
 	overlayElement: null,
@@ -278,7 +281,15 @@ onMounted(() => {
 	const canvasContainerEl = canvasContainer.value as unknown as HTMLElement
 	const canvasEl = canvas.value as unknown as HTMLElement
 	canvasProps.overlayElement = overlay.value
-	setScaleAndTranslate()
+
+	// Restore saved zoom level
+	const savedZoom = parseFloat(localStorage.getItem("studioCanvasZoom") || "1")
+	const isZoomRestored = !isNaN(savedZoom) && savedZoom >= 0.2 && savedZoom <= 2
+	if (isZoomRestored) {
+		canvasProps.scale = savedZoom
+	}
+
+	setScaleAndTranslate(false, !isZoomRestored)
 	showBlocks.value = true
 	setupHistory()
 	useCanvasEvents(
@@ -294,15 +305,49 @@ onMounted(() => {
 function zoomIn() {
 	if (canvasProps.scale < 2) {
 		canvasProps.scale = +(canvasProps.scale + 0.1).toFixed(2)
+		localStorage.setItem("studioCanvasZoom", canvasProps.scale.toString())
 	}
 }
 
 function zoomOut() {
 	if (canvasProps.scale > 0.2) {
 		canvasProps.scale = +(canvasProps.scale - 0.1).toFixed(2)
+		localStorage.setItem("studioCanvasZoom", canvasProps.scale.toString())
 	}
 }
 
+
+function handleKeyDown(e: KeyboardEvent) {
+	const tag = (e.target as HTMLElement).tagName
+
+	if (["INPUT", "TEXTAREA"].includes(tag) || (e.target as HTMLElement).isContentEditable) return
+
+	if (!isCanvasActive.value) return
+	switch (e.key) {
+		case "+":
+		case "=":
+			e.preventDefault()
+			zoomIn()
+			break
+		case "-":
+		case "_":
+			e.preventDefault()
+			zoomOut()
+			break
+		case "0":
+			e.preventDefault()
+			setScaleAndTranslate()
+			break
+	}
+}
+
+onMounted(() => {
+	window.addEventListener("keydown", handleKeyDown)
+})
+
+onBeforeUnmount(() => {
+	window.removeEventListener("keydown", handleKeyDown)
+})
 
 defineExpose({
 	history,
