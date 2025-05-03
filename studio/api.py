@@ -48,12 +48,10 @@ def get_whitelisted_methods(doctype: str) -> list[str]:
 def has_permission() -> bool:
 	if frappe.session.user == "Administrator":
 		return True
-
-	if all(
-		[
-			frappe.has_permission("Studio App", ptype="write"),
-			frappe.has_permission("Studio Page", ptype="write"),
-		]
+	if (
+		"Studio User" in frappe.get_roles()
+		and frappe.has_permission("Studio App", ptype="write")
+		and frappe.has_permission("Studio Page", ptype="write")
 	):
 		return True
 	return False
