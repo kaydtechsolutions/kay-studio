@@ -74,13 +74,27 @@
 		</div>
 
 		<div
-			class="fixed bottom-12 left-[50%] z-40 flex translate-x-[-50%] cursor-default items-center justify-center gap-2 rounded-lg bg-white px-3 py-2 text-center text-sm font-semibold text-gray-600 shadow-md"
+			class="fixed bottom-12 left-[50%] z-40 flex translate-x-[-50%] cursor-default items-center justify-center gap-3 rounded-lg bg-white px-4 py-2 text-center text-sm font-semibold text-gray-600 shadow-md"
 			v-show="!canvasProps.panning"
 		>
+			<!-- Zoom Out -->
+			<span title="Zoom Out">
+				<FeatherIcon name="minus" class="h-4 w-4 cursor-pointer" @click="zoomOut" />
+			</span>
+
+			<!-- Zoom Percentage -->
 			{{ Math.round(canvasProps.scale * 100) + "%" }}
-			<div class="ml-2 cursor-pointer" @click="setScaleAndTranslate">
-				<FitScreenIcon />
-			</div>
+
+			<!-- Zoom In -->
+			<span title="Zoom In">
+				<FeatherIcon name="plus" class="h-4 w-4 cursor-pointer" @click="zoomIn" />
+			</span>
+
+			<!-- Fit to Screen -->
+			<span title="Fit to Screen" >
+				<FeatherIcon name="maximize" class="h-4 w-4 cursor-pointer" @click="setScaleAndTranslate"/>
+			</span>
+
 		</div>
 	</div>
 </template>
@@ -89,7 +103,6 @@
 import { Ref, ref, watch, reactive, computed, onMounted, provide } from "vue"
 import { LoadingIndicator } from "frappe-ui"
 import StudioComponent from "@/components/StudioComponent.vue"
-import FitScreenIcon from "@/components/Icons/FitScreenIcon.vue"
 
 import useStudioStore from "@/stores/studioStore"
 import { getBlockCopy, getBlockInfo } from "@/utils/helpers"
@@ -277,6 +290,19 @@ onMounted(() => {
 	)
 	setPanAndZoom(canvasProps, canvasEl, canvasContainerEl)
 })
+
+function zoomIn() {
+	if (canvasProps.scale < 2) {
+		canvasProps.scale = +(canvasProps.scale + 0.1).toFixed(2)
+	}
+}
+
+function zoomOut() {
+	if (canvasProps.scale > 0.2) {
+		canvasProps.scale = +(canvasProps.scale - 0.1).toFixed(2)
+	}
+}
+
 
 defineExpose({
 	history,
