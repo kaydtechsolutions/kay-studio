@@ -115,10 +115,12 @@ const canvasStore = useCanvasStore()
 const activeTab = computed(() => store.studioLayout.leftPanelActiveTab)
 
 const setActiveTab = (tab: LeftPanelOptions) => {
-	if (!store.studioLayout.showLeftPanel) {
+	if (store.studioLayout.leftPanelActiveTab === tab && store.studioLayout.showLeftPanel) {
+		store.studioLayout.showLeftPanel = false
+	} else {
+		store.studioLayout.leftPanelActiveTab = tab
 		store.studioLayout.showLeftPanel = true
 	}
-	store.studioLayout.leftPanelActiveTab = tab
 }
 
 // moved out of ComponentLayers for performance
