@@ -55,6 +55,12 @@ function setPanAndZoom(
 				props.translateX += diffX / scale;
 				props.translateY += diffY / scale;
 			});
+		} else if (e.shiftKey) {
+			props.panning = true;
+			pinchPointSet = false;
+			// Horizontal panning when shift key is pressed
+			props.translateX -= e.deltaY / props.scale;
+			props.translateY -= e.deltaX / props.scale;
 		} else {
 			props.panning = true;
 			pinchPointSet = false;

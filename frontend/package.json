@@ -3,7 +3,7 @@
 	"private": true,
 	"version": "0.0.0",
 	"scripts": {
-		"dev": "vite",
+		"dev": "vite --host",
 		"build": "vite build --base=/assets/studio/frontend/ && yarn copy-html-entry && yarn copy-app-renderer",
 		"copy-html-entry": "cp ../studio/public/frontend/index.html ../studio/www/studio.html",
 		"copy-app-renderer": "cp ../studio/public/frontend/renderer.html ../studio/templates/generators/renderer.html",
