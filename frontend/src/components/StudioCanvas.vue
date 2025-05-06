@@ -26,24 +26,7 @@
 				transform: `scale(${canvasProps.scale}) translate(${canvasProps.translateX}px, ${canvasProps.translateY}px)`,
 			}"
 		>
-			<div class="dark:bg-zinc-900 absolute right-0 top-[-60px] flex rounded-md bg-white px-3">
-				<div
-					v-show="!canvasProps.scaling && !canvasProps.panning"
-					class="w-auto cursor-pointer p-2"
-					v-for="breakpoint in canvasProps.breakpoints"
-					:key="breakpoint.device"
-					@click.stop="breakpoint.visible = !breakpoint.visible"
-				>
-					<FeatherIcon
-						:name="breakpoint.icon"
-						class="h-8 w-6"
-						:class="{
-							'dark:text-zinc-50 text-gray-700': breakpoint.visible,
-							'dark:text-zinc-500 text-gray-300': !breakpoint.visible,
-						}"
-					/>
-				</div>
-			</div>
+
 			<div
 				class="canvas relative flex h-full bg-white shadow-2xl contain-layout"
 				:style="{
@@ -76,27 +59,62 @@
 		</div>
 
 		<div
-			class="fixed bottom-12 left-[50%] z-40 flex translate-x-[-50%] cursor-default items-center justify-center gap-3 rounded-lg bg-white px-4 py-2 text-center text-sm font-semibold text-gray-600 shadow-md"
+			class="fixed bottom-12 left-[50%] z-40 flex translate-x-[-50%] items-center gap-4 rounded-lg bg-white px-5 py-2 text-sm font-medium text-gray-600 shadow-md"
 			v-show="!canvasProps.panning"
 		>
-			<!-- Zoom Out -->
-			<span title="Zoom Out (-)">
-				<FeatherIcon name="minus" class="h-4 w-4 cursor-pointer" @click="zoomOut" />
-			</span>
+			<!-- Breakpoint Toggles -->
+			<div class="flex items-center gap-2 border-r border-gray-300 pr-3">
+				<button
+					v-for="breakpoint in canvasProps.breakpoints"
+					:key="breakpoint.device"
+					@click.stop="breakpoint.visible = !breakpoint.visible"
+					class="rounded p-1 transition-transform hover:scale-110 hover:bg-gray-100"
+					:title="breakpoint.displayName"
+					aria-label="Toggle Breakpoint"
+				>
+					<FeatherIcon
+						:name="breakpoint.icon"
+						class="h-5 w-5 cursor-pointer"
+						:class="{
+							'dark:text-zinc-50 text-gray-700': breakpoint.visible,
+							'dark:text-zinc-500 text-gray-300': !breakpoint.visible,
+						}"
+					/>
+				</button>
+			</div>
 
-			<!-- Zoom Percentage -->
-			{{ Math.round(canvasProps.scale * 100) + "%" }}
+			<!-- Zoom Controls -->
+			<div class="flex items-center gap-3 pl-2">
+				<button
+					title="Zoom Out (-)"
+					aria-label="Zoom Out"
+					@click="zoomOut"
+					class="rounded p-1 transition-transform hover:scale-110 hover:bg-gray-100"
+				>
+					<FeatherIcon name="minus" class="h-5 w-5" />
+				</button>
 
-			<!-- Zoom In -->
-			<span title="Zoom In (+)">
-				<FeatherIcon name="plus" class="h-4 w-4 cursor-pointer" @click="zoomIn" />
-			</span>
+				<span class="min-w-[3ch] text-center">{{ Math.round(canvasProps.scale * 100) + "%" }}</span>
 
-			<!-- Fit to Screen -->
-			<span title="Fit to Screen (0)" >
-				<FeatherIcon name="maximize" class="h-4 w-4 cursor-pointer" @click="setScaleAndTranslate"/>
-			</span>
 
+				<button
+					title="Zoom In (+)"
+					aria-label="Zoom In"
+					@click="zoomIn"
+					class="rounded p-1 transition-transform hover:scale-110 hover:bg-gray-100"
+				>
+					<FeatherIcon name="plus" class="h-5 w-5" />
+				</button>
+
+				<button
+					title="Fit to Screen (0)"
+					aria-label="Fit to Screen"
+					@click="() => setScaleAndTranslate()"
+					class="rounded p-1 transition-transform hover:scale-110 hover:bg-gray-100"
+				>
+					<FeatherIcon name="maximize" class="h-5 w-5" />
+				</button>
+			</div>
 		</div>
 	</div>
 </template>
