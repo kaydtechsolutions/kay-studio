@@ -17,7 +17,11 @@
 				<span v-if="!isCollapsed" class="truncate text-xl font-bold text-gray-800">
 					{{ title }}
 				</span>
-				<IconButton :icon="isCollapsed ? 'chevrons-right' : 'chevrons-left'" label="Collapse" @click="toggleCollapse" />
+				<IconButton
+					:icon="isCollapsed ? 'chevrons-right' : 'chevrons-left'"
+					:label="isCollapsed ? 'Expand' : 'Collapse'"
+					@click="toggleCollapse"
+				/>
 			</slot>
 		</button>
 
