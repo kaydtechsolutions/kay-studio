@@ -18,6 +18,7 @@
 
 		<div
 			class="fixed flex gap-40"
+			:class="canvasStore.editingMode === 'page' ? 'h-full': ''"
 			ref="canvas"
 			@mouseenter="isCanvasActive = true"
  			@mouseleave="isCanvasActive = false"
@@ -125,6 +126,7 @@ import { LoadingIndicator } from "frappe-ui"
 import StudioComponent from "@/components/StudioComponent.vue"
 
 import useStudioStore from "@/stores/studioStore"
+import useCanvasStore from "@/stores/canvasStore"
 import { getBlockCopy, getBlockInfo } from "@/utils/helpers"
 import setPanAndZoom from "@/utils/panAndZoom"
 import Block from "@/utils/block"
@@ -145,6 +147,7 @@ const props = defineProps({
 	},
 })
 const store = useStudioStore()
+const canvasStore = useCanvasStore()
 
 const canvasContainer = ref(null)
 const canvas = ref<HTMLElement | null>(null)
@@ -206,7 +209,7 @@ const history = ref(null) as Ref<null> | CanvasHistory
 
 // block hover & selection
 const hoveredBlock = ref<string | null>(null)
-const hoveredBreakpoint = ref<string | null>(null)
+const hoveredBreakpoint = ref<string | null>("desktop")
 const activeBreakpoint = ref<string | null>("desktop")
 
 function setHoveredBlock(blockId: string | null) {

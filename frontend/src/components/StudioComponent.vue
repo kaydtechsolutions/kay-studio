@@ -286,19 +286,6 @@ watch(
 )
 
 watch(
-	() => props.block.baseStyles,
-	() => {
-		if (!componentRef.value) return
-		// update styles when baseStyles change for frappeui components with inheritAttrs: false
-		const styles = props.block.getStyles(props.breakpoint)
-		for (const key in styles) {
-			componentRef.value?.$el?.style?.setProperty(key, styles[key])
-		}
-	},
-	{ deep: true },
-)
-
-watch(
 	() => componentRef.value,
 	() => {
 		if (!componentRef.value) return
@@ -306,6 +293,7 @@ watch(
 		target.value = getComponentRoot(componentRef)
 		if (target.value && target.value instanceof Element) {
 			target.value?.setAttribute("data-component-id", props.block.componentId)
+			target.value?.setAttribute("data-breakpoint", props.breakpoint)
 		}
 		isComponentReady.value = true
 	},

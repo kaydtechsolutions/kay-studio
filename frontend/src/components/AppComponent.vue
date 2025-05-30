@@ -30,6 +30,7 @@
 <script setup lang="ts">
 import Block from "@/utils/block"
 import { computed, onMounted, ref, useAttrs, inject } from "vue"
+import type { ComponentPublicInstance } from "vue"
 import { useRouter, useRoute } from "vue-router"
 import { createResource } from "frappe-ui"
 import { getComponentRoot, isDynamicValue, getDynamicValue, isHTML, executeUserScript } from "@/utils/helpers"
@@ -48,7 +49,7 @@ const componentName = computed(() => {
 	return props.block.componentName
 })
 
-const componentRef = ref(null)
+const componentRef = ref<ComponentPublicInstance | null>(null)
 
 const { currentBreakpoint } = useScreenSize()
 const styles = computed(() => props.block.getStyles(currentBreakpoint.value))
@@ -229,9 +230,9 @@ function getPageRoute(appRoute: string, page: string) {
 }
 
 onMounted(() => {
-	// set data-component-id on mount since some frappeui components have inheritAttrs: false
 	const componentRoot = getComponentRoot(componentRef)
 	if (componentRoot) {
+		// explicitly set data-component-id for frappeui components with inheritAttrs: false
 		componentRoot.setAttribute("data-component-id", props.block.componentId)
 	}
 })
