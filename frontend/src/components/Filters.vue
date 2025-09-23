@@ -31,7 +31,7 @@
 								placeholder="Operator"
 							/>
 						</div>
-						<div id="value" class="!min-w-[140px] flex-1">
+						<div id="value" class="flex-1">
 							<Link
 								v-if="typeLink.includes(filter.field.fieldtype) && ['=', '!='].includes(filter.operator)"
 								:doctype="filter.field.options as string"
@@ -88,8 +88,9 @@ import { Autocomplete, FeatherIcon, FormControl } from "frappe-ui"
 import { computed, h, ref, watch } from "vue"
 import Link from "@/components/Link.vue"
 
-import { DocTypeField, Fieldtype, Filter, Operators } from "@/types"
+import type { DocTypeField, Fieldtype, Filter, Operators } from "@/types"
 import { isObjectEmpty } from "@/utils/helpers"
+import type { Filters } from "@/types/Studio/StudioResource"
 
 const typeCheck = ["Check"]
 const typeLink = ["Link"]
@@ -101,8 +102,8 @@ const emits = defineEmits(["update:modelValue"])
 
 const props = withDefaults(
 	defineProps<{
-		label: string
-		modelValue: Record<string, any>
+		label?: string
+		modelValue?: Filters
 		docfields: DocTypeField[]
 	}>(),
 	{
@@ -127,8 +128,8 @@ const fields = computed(() => {
 		.map((field) => {
 			return {
 				value: field.fieldname,
-				description: field.fieldtype,
 				...field,
+				description: field.fieldtype,
 			}
 		})
 })
@@ -146,7 +147,7 @@ watch(
 	{ deep: true },
 )
 
-function makeFiltersList(filtersDict: Record<string, [Operators, any]>) {
+function makeFiltersList(filtersDict: Filters) {
 	if (!fields.value.length || isObjectEmpty(filtersDict)) return []
 
 	return Object.entries(filtersDict).map(([fieldname, [operator, value]]) => {

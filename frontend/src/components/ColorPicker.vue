@@ -1,6 +1,6 @@
 <!-- Extracted from Builder -->
 <template>
-	<Popover transition="default" placement="left" class="!block w-full" popoverClass="!min-w-fit !mr-[30px]">
+	<Popover transition="default" placement="left" class="!block w-full" popoverClass="!w-fit">
 		<template #target="{ togglePopover, isOpen }">
 			<slot
 				name="target"
@@ -147,6 +147,7 @@ if (!isSupported.value) {
 colors.push("#F3F3F3", "#EDEDED")
 
 const setColorSelectorPosition = (color: HashString) => {
+	if (!colorMap.value) return
 	const { width, height } = colorMap.value.getBoundingClientRect()
 	const { s, v } = HexToHSV(color)
 	let x = clamp(s * width, 0, width)
@@ -155,6 +156,7 @@ const setColorSelectorPosition = (color: HashString) => {
 }
 
 const setHueSelectorPosition = (color: HashString) => {
+	if (!hueMap.value) return
 	const { width } = hueMap.value.getBoundingClientRect()
 	const { h } = HexToHSV(color)
 	const left = (h / 360) * width

@@ -1,6 +1,19 @@
 <template>
+	<StudioComponentWrapper
+		v-if="block.isStudioComponent"
+		:studioComponent="block"
+		:evaluationContext="evaluationContext"
+		:breakpoint="breakpoint"
+	/>
+	<StudioComponentEditorWrapper
+		v-else-if="isEditingComponent"
+		:studioComponent="block"
+		:breakpoint="breakpoint"
+	/>
+
 	<component
-		v-if="block.canHaveChildren()"
+		v-else-if="block.canHaveChildren()"
+		v-show="showComponent"
 		:is="componentName"
 		v-bind="componentProps"
 		v-model="boundValue"
@@ -61,6 +74,7 @@
 	<component
 		v-else
 		:is="block.componentName"
+		v-show="showComponent"
 		v-bind="componentProps"
 		v-model="boundValue"
 		:data-component-id="block.componentId"
@@ -78,7 +92,7 @@
 		<ComponentEditor
 			v-if="loadEditor"
 			ref="editor"
-			:block="block"
+			:block="block.extendedFromComponent || block"
 			:breakpoint="breakpoint"
 			:isSelected="isSelected"
 			:target="(target as HTMLElement)"
@@ -87,21 +101,31 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, useAttrs, inject } from "vue"
+import { computed, ref, watch, useAttrs, inject, ComputedRef } from "vue"
 import type { ComponentPublicInstance } from "vue"
+import StudioComponentWrapper from "@/components/StudioComponentWrapper.vue"
 import ComponentEditor from "@/components/ComponentEditor.vue"
 
 import Block from "@/utils/block"
 import useStudioStore from "@/stores/studioStore"
 import useCanvasStore from "@/stores/canvasStore"
-import { getComponentRoot, isDynamicValue, getDynamicValue, isHTML } from "@/utils/helpers"
+import {
+	getComponentRoot,
+	isDynamicValue,
+	getDynamicValue,
+	isHTML,
+	getValueFromObject,
+	setValueInObject,
+} from "@/utils/helpers"
 
-import { CanvasProps } from "@/types/StudioCanvas"
+import type { CanvasProps } from "@/types/StudioCanvas"
+import type { RepeaterContext } from "@/types"
 
 const props = withDefaults(
 	defineProps<{
 		block: Block
 		breakpoint?: string
+		isEditingComponent?: boolean
 	}>(),
 	{
 		breakpoint: "desktop",
@@ -126,9 +150,15 @@ const slotClasses = ["__studio_component_slot__", "outline-none", "select-none"]
 const canvasProps = inject("canvasProps") as CanvasProps
 
 const styles = computed(() => {
-	return {
-		...props.block.getStyles(props.breakpoint),
-	}
+	const _styles = { ...props.block.getStyles(props.breakpoint) }
+	Object.entries(_styles).forEach(([key, value]) => {
+		if (value) {
+			if (isDynamicValue(value.toString())) {
+				_styles[key] = getDynamicValue(value.toString(), evaluationContext.value)
+			}
+		}
+	})
+	return _styles
 })
 
 const componentName = computed(() => {
@@ -138,14 +168,17 @@ const componentName = computed(() => {
 	return proxyComponent ? proxyComponent : props.block.componentName
 })
 
-const repeaterContext = inject("repeaterContext", {})
-const getEvaluationContext = () => {
+const repeaterContext = inject<RepeaterContext | object>("repeaterContext", {})
+const componentContext = inject<ComputedRef | null>("componentContext", null)
+const evaluationContext = computed(() => {
 	return {
 		...store.variables,
 		...store.resources,
 		...repeaterContext,
+		...componentContext?.value,
+		route: store.routeObject,
 	}
-}
+})
 
 const getComponentProps = () => {
 	if (!props.block || props.block.isRoot()) return []
@@ -155,7 +188,7 @@ const getComponentProps = () => {
 
 	Object.entries(propValues).forEach(([propName, config]) => {
 		if (isDynamicValue(config)) {
-			propValues[propName] = getDynamicValue(config, getEvaluationContext())
+			propValues[propName] = getDynamicValue(config, evaluationContext.value)
 		}
 	})
 	return propValues
@@ -172,22 +205,33 @@ const componentProps = computed(() => {
 const componentRef = ref<ComponentPublicInstance | null>(null)
 const target = ref<HTMLElement | null>(null)
 
+// visibility
+const showComponent = computed(() => {
+	if (props.block.visibilityCondition) {
+		const value = getDynamicValue(props.block.visibilityCondition, evaluationContext.value)
+		// Handle different return types:
+		// - Boolean: return as-is
+		// - String "true"/"false": convert to boolean
+		// - Other values: check truthiness
+		if (typeof value === "boolean") {
+			return value
+		} else if (typeof value === "string" && (value === "true" || value === "false")) {
+			return value === "true"
+		} else {
+			return value
+		}
+	}
+	return true
+})
+
 // modelValue binding
 const boundValue = computed({
 	get() {
 		const modelValue = props.block.componentProps.modelValue
 		if (modelValue?.$type === "variable") {
-			// handle nested object properties
-			const propertyPath = modelValue.name.split(".")
-			let value = store.variables
-			// return nested object property value
-			for (const key of propertyPath) {
-				if (value === undefined || value === null) return undefined
-				value = value[key]
-			}
-			return value
+			return getValueFromObject(store.variables, modelValue.name)
 		} else if (isDynamicValue(modelValue)) {
-			return getDynamicValue(modelValue, getEvaluationContext())
+			return getDynamicValue(modelValue, evaluationContext.value)
 		}
 		return modelValue
 	},
@@ -195,25 +239,7 @@ const boundValue = computed({
 		const modelValue = props.block.componentProps.modelValue
 		if (modelValue?.$type === "variable") {
 			// update the variable in the store
-			const propertyPath = modelValue.name.split(".")
-			if (propertyPath.length === 1) {
-				// top level variable
-				store.variables[modelValue.name] = newValue
-			} else {
-				// nested object properties
-				const targetProperty = propertyPath.pop()!
-				let obj = store.variables
-
-				// navigate to the parent object
-				for (const key of propertyPath) {
-					if (!obj[key] || typeof obj[key] !== "object") {
-						obj[key] = {}
-					}
-					obj = obj[key]
-				}
-				// set the value on the parent object
-				obj[targetProperty] = newValue
-			}
+			setValueInObject(store.variables, modelValue.name, newValue)
 		} else {
 			// update the prop directly if not bound to a variable
 			props.block.setProp("modelValue", newValue)
@@ -227,6 +253,7 @@ const isSelected = computed(() => canvasStore.activeCanvas?.selectedBlockIds?.ha
 
 const loadEditor = computed(() => {
 	return (
+		!props.block.isChildOfComponent &&
 		target.value &&
 		isComponentReady.value &&
 		props.block.getStyle("display") !== "none" &&
@@ -252,7 +279,9 @@ const handleMouseLeave = (e: MouseEvent) => {
 
 const getClickedComponent = (e: MouseEvent) => {
 	const targetElement = e.target as HTMLElement
-	const componentId = targetElement.closest("[data-component-id]")?.getAttribute("data-component-id")
+	const componentId = targetElement
+		.closest("[data-component-id]:not(.__studio_component_child__)")
+		?.getAttribute("data-component-id")
 	if (componentId) {
 		return canvasStore.activeCanvas?.findBlock(componentId)
 	}
@@ -261,6 +290,9 @@ const getClickedComponent = (e: MouseEvent) => {
 const handleClick = (e: MouseEvent) => {
 	const block = getClickedComponent(e) || props.block
 	canvasStore.activeCanvas?.selectBlock(block, e)
+	if (repeaterContext) {
+		block.setRepeaterDataItem((repeaterContext as RepeaterContext).dataItem)
+	}
 
 	const slotName = (e.target as HTMLElement).dataset.slotName
 	if (slotName) {
@@ -298,5 +330,15 @@ watch(
 		isComponentReady.value = true
 	},
 	{ immediate: true },
+)
+
+watch(
+	() => componentContext?.value,
+	(newContext) => {
+		if (canvasStore.editingMode === "component" && newContext) {
+			props.block.setComponentContext(newContext)
+		}
+	},
+	{ deep: true, immediate: true },
 )
 </script>

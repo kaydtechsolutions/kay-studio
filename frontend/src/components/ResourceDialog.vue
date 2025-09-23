@@ -2,7 +2,7 @@
 	<Dialog
 		v-model="showDialog"
 		:options="{
-			title: resource?.name ? 'Edit Data Source' : 'Add Data Source',
+			title: resource?.resource_id ? 'Edit Data Source' : 'Add Data Source',
 			size: '2xl',
 		}"
 		@after-leave="reset"
@@ -10,115 +10,112 @@
 		<template #body-content>
 			<div class="flex flex-col space-y-4">
 				<FormControl
-					label="New or Existing"
-					v-if="!resource?.name"
-					type="select"
-					:options="['New Data Source', 'Existing Data Source']"
-					autocomplete="off"
-					v-model="newResource.source"
-				/>
-				<Link
-					label="Data Source"
-					v-if="newResource.source === 'Existing Data Source'"
+					label="Data Source Name"
 					:required="true"
-					doctype="Studio Resource"
-					placeholder="Select Data Source"
-					v-model="newResource.name"
-					:showTitleFieldAsOption="true"
+					v-model="newResource.resource_name"
+					autocomplete="off"
+				/>
+				<FormControl
+					label="Type"
+					type="select"
+					:options="['Document List', 'Document', 'API Resource']"
+					autocomplete="off"
+					v-model="newResource.resource_type"
 				/>
 
-				<template v-else>
+				<!-- API Resource -->
+				<template v-if="newResource.resource_type === 'API Resource'">
+					<FormControl label="URL" v-model="newResource.url" :required="true" />
 					<FormControl
-						label="Data Source Name"
-						:required="true"
-						v-model="newResource.resource_name"
-						autocomplete="off"
-					/>
-					<FormControl
-						label="Type"
+						label="Method"
 						type="select"
-						:options="['Document List', 'Document', 'API Resource']"
-						autocomplete="off"
-						v-model="newResource.resource_type"
+						:options="['GET', 'POST', 'PUT', 'DELETE']"
+						v-model="newResource.method"
 					/>
-
-					<!-- API Resource -->
-					<template v-if="newResource.resource_type === 'API Resource'">
-						<FormControl label="URL" v-model="newResource.url" :required="true" />
-						<FormControl
-							label="Method"
-							type="select"
-							:options="['GET', 'POST', 'PUT', 'DELETE']"
-							v-model="newResource.method"
-						/>
-					</template>
-
-					<Link
-						v-else
-						label="Document Type"
-						:required="true"
-						doctype="DocType"
-						v-model="newResource.document_type"
-					/>
-
-					<!-- Document List -->
-					<template v-if="newResource.resource_type === 'Document List' && newResource.document_type">
-						<FormControl
-							label="Fields"
-							:required="true"
-							type="autocomplete"
-							:placeholder="`Select fields from ${newResource.document_type}`"
-							v-model="newResource.fields"
-							:options="doctypeFields"
-							:multiple="true"
-						/>
-						<Filters label="Filters" v-model="newResource.filters" :docfields="filterFields" />
-					</template>
-
-					<!-- Document -->
-					<template v-if="newResource.resource_type === 'Document' && newResource.document_type">
-						<Link
-							label="Document Name"
-							v-if="!newResource.fetch_document_using_filters"
-							:required="true"
-							:doctype="newResource.document_type"
-							v-model="newResource.document_name"
-						/>
-
-						<div class="flex w-full flex-row gap-1.5">
-							<FormControl size="sm" type="checkbox" v-model="newResource.fetch_document_using_filters" />
-							<InputLabel class="max-w-full">Dynamically fetch document using filters</InputLabel>
-						</div>
-
-						<Filters
-							v-if="newResource.fetch_document_using_filters"
-							v-model="newResource.filters"
-							:docfields="filterFields"
-						/>
-
-						<FormControl
-							label="Whitelisted Methods"
-							type="autocomplete"
-							v-model="newResource.whitelisted_methods"
-							:options="whitelistedMethods"
-							:multiple="true"
-						/>
-					</template>
-
-					<!-- Transform Results for any Resource Type -->
-					<div class="flex flex-row gap-1.5">
-						<FormControl size="sm" type="checkbox" v-model="newResource.transform_results" />
-						<InputLabel>Transform Results</InputLabel>
-					</div>
-
-					<CodeEditor
-						v-if="newResource.transform_results"
-						v-model="newResource.transform"
-						type="JavaScript"
-						height="150px"
-						:showLineNumbers="true"
+					<Grid
+						label="Parameters"
+						:columns="[
+							{ label: 'Key', fieldname: 'key', fieldtype: 'Data' },
+							{ label: 'Value', fieldname: 'value', fieldtype: 'Code', completions: getCompletions },
+						]"
+						:rows="Array.isArray(newResource.params) ? newResource.params : []"
+						:showDeleteBtn="true"
+						@update:rows="(val) => (newResource.params = val)"
 					/>
 				</template>
+
+				<Link
+					v-else
+					label="Document Type"
+					:required="true"
+					doctype="DocType"
+					v-model="newResource.document_type"
+				/>
+
+				<!-- Document List -->
+				<template v-if="newResource.resource_type === 'Document List' && newResource.document_type">
+					<FormControl
+						label="Fields"
+						:required="true"
+						type="autocomplete"
+						:placeholder="`Select fields from ${newResource.document_type}`"
+						v-model="newResource.fields"
+						:options="doctypeFields"
+						:multiple="true"
+					/>
+					<FormControl
+						label="Limit"
+						type="number"
+						placeholder="Number of records to fetch (default: 20)"
+						v-model="newResource.limit"
+					/>
+					<Filters label="Filters" v-model="newResource.filters" :docfields="filterFields" />
+				</template>
+
+				<!-- Document -->
+				<template v-if="newResource.resource_type === 'Document' && newResource.document_type">
+					<Link
+						label="Document Name"
+						v-if="!newResource.fetch_document_using_filters"
+						:required="true"
+						:doctype="newResource.document_type"
+						v-model="newResource.document_name"
+					/>
+
+					<div class="flex w-full flex-row items-center gap-1.5">
+						<FormControl size="sm" type="checkbox" v-model="newResource.fetch_document_using_filters" />
+						<InputLabel class="max-w-full">Dynamically fetch document using filters</InputLabel>
+					</div>
+
+					<Filters
+						v-if="newResource.fetch_document_using_filters"
+						v-model="newResource.filters"
+						:docfields="filterFields"
+					/>
+
+					<FormControl
+						label="Whitelisted Methods"
+						type="autocomplete"
+						v-model="newResource.whitelisted_methods"
+						:options="whitelistedMethods"
+						:multiple="true"
+					/>
+				</template>
+
+				<!-- Transform Results for any Resource Type -->
+				<div class="flex flex-row items-center gap-1.5">
+					<FormControl size="sm" type="checkbox" v-model="newResource.transform_results" />
+					<InputLabel>Transform Results</InputLabel>
+				</div>
+
+				<Code
+					v-if="newResource.transform_results"
+					v-model="newResource.transform"
+					language="javascript"
+					height="150px"
+					:emitOnChange="true"
+					:completions="getCompletions"
+				/>
 			</div>
 		</template>
 
@@ -127,12 +124,12 @@
 				<ErrorMessage class="mb-2" :message="errorMessage" />
 				<Button
 					variant="solid"
-					:label="resource?.name ? 'Save' : 'Add'"
+					:label="resource?.resource_id ? 'Save' : 'Add'"
 					@click="
 						() => {
 							if (!areRequiredFieldsFilled()) return
 
-							if (resource?.name) {
+							if (resource?.resource_id) {
 								emit('editResource', newResource)
 							} else {
 								emit('addResource', newResource)
@@ -150,43 +147,46 @@
 import { computed, ref, watch } from "vue"
 import { createResource, Dialog } from "frappe-ui"
 import Link from "@/components/Link.vue"
-import CodeEditor from "@/components/CodeEditor.vue"
+import Code from "@/components/Code.vue"
 import InputLabel from "@/components/InputLabel.vue"
 import Filters from "@/components/Filters.vue"
+import Grid from "@/components/Grid.vue"
 
-import { DocTypeField } from "@/types"
-import { NewResource, ResourceType, Resource } from "@/types/Studio/StudioResource"
-import { isObjectEmpty } from "@/utils/helpers"
+import type { DocTypeField } from "@/types"
+import type { ResourceType, Resource } from "@/types/Studio/StudioResource"
+import { getParamsArray, isObjectEmpty } from "@/utils/helpers"
+import { useStudioCompletions } from "@/utils/useStudioCompletions"
 
 const props = defineProps<{
 	resource?: Resource | null
 }>()
 const showDialog = defineModel("showDialog", { type: Boolean, required: true })
 const emit = defineEmits(["addResource", "editResource"])
+const getCompletions = useStudioCompletions()
 
-const emptyResource: NewResource = {
-	// source
-	source: "New Data Source",
-	// config
+const emptyResource: Resource = {
+	resource_id: "",
 	resource_name: "",
 	resource_type: "Document List",
 	url: "",
 	method: "GET",
+	params: [],
 	document_type: "",
 	document_name: "",
 	fetch_document_using_filters: false,
 	fields: [],
 	filters: {},
+	limit: null,
 	whitelisted_methods: [],
 	transform_results: false,
 	transform: "",
 }
 
-const newResource = ref<NewResource | Resource>({ ...emptyResource })
+const newResource = ref<Resource>({ ...emptyResource })
 watch(
 	() => props.resource,
 	async () => {
-		if (props.resource?.name) {
+		if (props.resource?.resource_id) {
 			newResource.value = await getResourceToEdit()
 		} else {
 			newResource.value = { ...emptyResource }
@@ -205,10 +205,12 @@ async function getResourceToEdit() {
 	return {
 		...props.resource,
 		source: "",
-		name: props.resource?.name,
+		resource_id: props.resource?.resource_id,
 		resource_name: props.resource?.resource_name,
 		filters: filters,
 		fields: JSON.parse(props.resource?.fields || "[]"),
+		params: getParamsArray(props.resource?.params),
+		limit: props.resource?.limit || null,
 		whitelisted_methods: JSON.parse(props.resource?.whitelisted_methods || "[]"),
 	} as Resource
 }
@@ -284,15 +286,13 @@ watch(
 	() => [newResource.value?.resource_type, newResource.value?.transform_results],
 	([resource_type, transform_results]) => {
 		if (!resource_type || !transform_results || newResource.value.transform) return
-		newResource.value.transform = getTransformFnBoilerplate(resource_type)
+		if (typeof resource_type === "string") {
+			newResource.value.transform = getTransformFnBoilerplate(resource_type as ResourceType)
+		}
 	},
 )
 
 const requiredFields = computed(() => {
-	if (newResource.value.source === "Existing Data Source") {
-		return { name: "Data Source" }
-	}
-
 	const reqd: Record<string, string> = { resource_name: "Data Source Name" }
 	if (newResource.value.resource_type === "API Resource") {
 		reqd["url"] = "URL"

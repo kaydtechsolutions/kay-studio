@@ -32,9 +32,20 @@
 								class="h-3 w-3"
 								@click.stop="toggleExpanded(element)"
 							/>
-							<LucideIcon :name="element.getIcon()" class="h-3 w-3" />
+							<component
+								:is="element.getIcon()"
+								class="h-3 w-3"
+								:class="{
+									'text-purple-500 opacity-80 dark:opacity-100 dark:brightness-125 dark:saturate-[0.3]':
+										element.isStudioComponent,
+								}"
+							/>
 							<span
 								class="min-h-[1em] min-w-[2em] truncate"
+								:class="{
+									'text-purple-500 opacity-80 dark:opacity-100 dark:brightness-125 dark:saturate-[0.3]':
+										element.isStudioComponent,
+								}"
 								:contenteditable="element.editable"
 								:title="element.blockId"
 								@dblclick="element.editable = true"
@@ -79,9 +90,7 @@
 										@click.stop="toggleSlotExpanded(slot)"
 									/>
 									<SlotIcon class="h-3 w-3" />
-									<span class="min-h-[1em] min-w-[2em] truncate" :title="slot.slotName">
-										#{{ slotName }}
-									</span>
+									<span class="min-h-[1em] min-w-[2em] truncate" :title="slot.slotName">#{{ slotName }}</span>
 								</div>
 
 								<div v-if="Array.isArray(slot.slotContent) && isSlotExpanded(slot)">
@@ -105,9 +114,8 @@ import ComponentLayers from "@/components/ComponentLayers.vue"
 
 import useCanvasStore from "@/stores/canvasStore"
 import Block from "@/utils/block"
-import LucideIcon from "./LucideIcon.vue"
 import SlotIcon from "@/components/Icons/SlotIcon.vue"
-import { Slot } from "@/types"
+import type { Slot } from "@/types"
 
 const props = withDefaults(
 	defineProps<{
@@ -194,7 +202,7 @@ const openBlockEditor = (block: Block, e: MouseEvent) => {
 			`Save ${block.componentName}`,
 		)
 	} else {
-		canvasStore.activeCanvas?.selectBlock(block, e, false)
+		canvasStore.activeCanvas?.selectBlock(block, e, false, false)
 	}
 }
 

@@ -1,5 +1,5 @@
 <template>
-	<div class="studio h-screen flex-col overflow-hidden bg-gray-100">
+	<div class="studio isolate h-screen flex-col overflow-hidden bg-gray-100">
 		<ComponentContextMenu ref="componentContextMenu"></ComponentContextMenu>
 		<StudioToolbar class="relative z-30" />
 		<div class="flex flex-col">
@@ -10,7 +10,7 @@
 			<StudioCanvas
 				ref="fragmentCanvas"
 				:key="canvasStore.fragmentData.block?.componentId"
-				v-if="canvasStore.editingMode === 'fragment' && canvasStore.fragmentData.block"
+				v-if="canvasStore.showFragmentCanvas && canvasStore.fragmentData.block"
 				:componentTree="canvasStore.fragmentData.block"
 				:canvas-styles="{
 					width: (canvasStore.fragmentData.block.getStyle('width') + '').endsWith('px')
@@ -31,17 +31,26 @@
 						class="absolute left-0 right-0 top-0 z-20 flex items-center justify-between bg-white p-[0.4rem] text-sm text-ink-gray-8 shadow-sm"
 					>
 						<div class="flex items-center gap-1 pl-2 text-xs">
-							<a @click="canvasStore.exitFragmentMode" class="cursor-pointer">{{
-								store.activePage?.page_title
-							}}</a>
+							<a @click="canvasStore.exitFragmentMode" class="cursor-pointer">
+								{{ store.activePage?.page_title }}
+							</a>
 							<FeatherIcon name="chevron-right" class="h-3 w-3" />
 							<span class="flex items-center gap-2">
 								{{ canvasStore.fragmentData.fragmentName }}
 							</span>
 						</div>
-						<Button variant="solid" class="text-xs" @click="saveAndExitFragmentMode">
-							{{ canvasStore.fragmentData.saveActionLabel || "Save" }}
-						</Button>
+
+						<div class="ml-auto flex items-center gap-2">
+							<Button
+								v-if="canvasStore.editingMode === 'component'"
+								variant="subtle"
+								icon="settings"
+								@click.prevent="store.studioLayout.rightPanelActiveTab = 'Interface'"
+							></Button>
+							<Button variant="solid" class="text-xs" @click="saveAndExitFragmentMode">
+								{{ canvasStore.fragmentData.saveActionLabel || "Save" }}
+							</Button>
+						</div>
 					</div>
 				</template>
 			</StudioCanvas>
@@ -84,7 +93,7 @@ import useStudioStore from "@/stores/studioStore"
 import useCanvasStore from "@/stores/canvasStore"
 import { studioPages } from "@/data/studioPages"
 import { getRootBlock } from "@/utils/helpers"
-import { StudioPage } from "@/types/Studio/StudioPage"
+import type { StudioPage } from "@/types/Studio/StudioPage"
 import { useStudioEvents } from "@/utils/useStudioEvents"
 
 const route = useRoute()
@@ -104,6 +113,9 @@ watchEffect(() => {
 			const fragmentRootBlock = fragmentCanvas.value?.getRootBlock()
 			if (fragmentRootBlock) {
 				canvasStore.activeCanvas?.selectBlock(fragmentRootBlock, null)
+				if (canvasStore.editingMode === "component") {
+					store.studioLayout.rightPanelActiveTab = "Interface"
+				}
 			}
 		})
 	} else {
@@ -114,7 +126,6 @@ watchEffect(() => {
 async function saveAndExitFragmentMode(e: Event) {
 	canvasStore.fragmentData.saveAction?.(fragmentCanvas.value?.getRootBlock())
 	canvasStore.exitFragmentMode(e)
-	store.savePage()
 }
 
 const debouncedPageSave = useDebounceFn(store.savePage, 300)
@@ -178,8 +189,9 @@ watch(
 )
 
 usePageMeta(() => {
+	const page_title = store.activePage?.page_title
 	return {
-		title: `${store.activePage?.page_title} | Frappe Studio`,
+		title: page_title ? `${page_title} | Frappe Studio` : "Frappe Studio",
 	}
 })
 </script>

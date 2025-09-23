@@ -6,7 +6,7 @@
 				type="text"
 				variant="outline"
 				class="w-full"
-				:modelValue="page.page_title"
+				:modelValue="pageTitle"
 				@update:modelValue="(val: string) => store.updateActivePage('page_title', val)"
 			/>
 
@@ -18,8 +18,8 @@
 						type="text"
 						variant="outline"
 						class="w-full"
-						:modelValue="pageRoute"
 						:hideClearButton="true"
+						:modelValue="pageRoute"
 						@update:modelValue="
 							(val: string) => {
 								store.updateActivePage('route', val.startsWith('/') ? val : `/${val}`)
@@ -29,6 +29,7 @@
 
 					<!-- App Route Prefix -->
 					<div
+						ref="prefixElement"
 						class="absolute bottom-[1px] left-[1px] flex items-center rounded-l-[0.4rem] bg-gray-100 text-gray-700"
 					>
 						<span class="flex h-[1.6rem] items-center text-nowrap px-2 py-0 text-base">
@@ -42,7 +43,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue"
+import { computed, nextTick, ref, watch } from "vue"
 import useStudioStore from "@/stores/studioStore"
 import type { StudioPage } from "@/types/Studio/StudioPage"
 import type { StudioApp } from "@/types/Studio/StudioApp"
@@ -56,14 +57,17 @@ const props = defineProps<{
 }>()
 
 const inputRef = ref<InstanceType<typeof Input> | null>(null)
+
+const pageTitle = ref(props.page.page_title || "")
 const pageRoute = ref(props.page.route)
 const setPageRoute = () => {
 	// remove leading slash from route because app route prefix will be <app.route>/ so that user doesn't have to type the leading slash
 	pageRoute.value = props.page.route.replace(/^\//, "")
 }
 
+const prefixElement = ref<HTMLElement | null>(null)
 const dynamicPadding = computed(() => {
-	const prefixWidth = props.app?.route?.length * 8 + 15 // Assuming 8px per character plus 4px for padding
+	const prefixWidth = (prefixElement.value?.offsetWidth || 0) + 10 // adding 10px for extra space
 	return `${Math.round(prefixWidth)}px`
 })
 
@@ -79,10 +83,12 @@ const applyDynamicPadding = () => {
 watch(
 	() => props.isOpen,
 	() => {
-		// apply dynamic padding to input element when the popover is opened
-		// to avoid overlapping with the prefix content
-		applyDynamicPadding()
-		setPageRoute()
+		nextTick(() => {
+			// apply dynamic padding to input element when the popover is opened
+			// to avoid overlapping with the prefix content
+			applyDynamicPadding()
+			setPageRoute()
+		})
 	},
 	{ immediate: true },
 )

@@ -1,5 +1,7 @@
+import type { FunctionalComponent } from "vue"
 import Block from "../utils/block"
-import { VuePropDefault } from "@/types/vue"
+import type { VuePropDefault } from "@/types/vue"
+import type { Completion } from "@codemirror/autocomplete"
 
 export type ObjectLiteral = Record<string, any>
 export type StyleValue = string | number | null | undefined
@@ -14,6 +16,7 @@ export interface BlockOptions {
 	componentProps?: Record<string, any>
 	componentSlots?: Record<string, Slot>
 	componentEvents?: Record<string, any>
+	originalElement?: string
 	children?: Array<Block | BlockOptions>
 	baseStyles?: BlockStyleMap
 	rawStyles?: BlockStyleMap
@@ -24,10 +27,13 @@ export interface BlockOptions {
 	classes?: string[]
 	parentSlotName?: string // for top-level blocks inside a slot
 	visibilityCondition?: string
+	isStudioComponent?: boolean
+	isChildOfComponent?: string
+	extendedFromComponent?: Block
 	[key: string]: any
 }
 
-export type EditingMode = "page" | "fragment"
+export type EditingMode = "page" | "fragment" | "component"
 export type StudioMode = "select" | "container"
 
 // slot
@@ -72,13 +78,15 @@ export type ExpressionEvaluationContext = Record<string, any> | undefined
 export interface FrappeUIComponent {
 	name: string,
 	title: string,
-	icon: string,
+	icon: string | FunctionalComponent,
 	initialState?: Record<string, any>,
 	initialSlots?: Array<string>,
 	props?: Array<Record<string, any>>,
 	emits?: Array<string> | Record<string, any>,
 	editInFragmentMode?: boolean, // whether to open a separate canvas for editing this component
 	proxyComponent?: any, // pseudo-component to be used in edit mode
+	additionalProps?: Record<string, any> // additional props to be shown in the properties panel that are not explicitly defined in the component
+	useOverridenPropTypes?: boolean // whether to use the prop types defined in json_types
 }
 
 export interface FrappeUIComponents {
@@ -104,9 +112,23 @@ export type Filter = {
 }
 
 export type LeftPanelOptions = "Pages" | "Add Component" | "Layers" | "Data" | "Code"
-export type RightPanelOptions = "Properties" | "Events" | "Styles"
+export type RightPanelOptions = "Properties" | "Events" | "Styles" | "Interface"
+export type leftPanelComponentTabOptions = "Standard" | "Custom"
 
 // right panel
 export type HashString = `#${string}`
 
 export type RGBString = `rgb(${number}, ${number}, ${number})`
+
+// repeater
+export type RepeaterContext = {
+	dataItem: Record<string, any>
+	dataIndex: number
+	dataKey?: string
+}
+
+// completions
+export type CompletionSource = {
+	item: any,
+	completion: Completion
+}

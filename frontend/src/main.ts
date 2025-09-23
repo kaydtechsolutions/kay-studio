@@ -9,6 +9,12 @@ import App from "./App.vue"
 import { resourcesPlugin, frappeRequest } from "frappe-ui"
 import { registerGlobalComponents } from "./globals"
 
+import { COMPONENTS } from "@/data/components"
+import Block from "@/utils/block"
+import "@/utils/appUtilsRenderer"
+
+Block.setComponents(COMPONENTS)
+
 const studio = createApp(App)
 const pinia = createPinia()
 
@@ -17,10 +23,12 @@ studio.use(studio_router)
 studio.use(resourcesPlugin)
 studio.use(pinia)
 registerGlobalComponents(studio)
+window.__APP_COMPONENTS__ = studio._context.components
 
 declare global {
 	interface Window {
 		site_url: string
+		__APP_COMPONENTS__: any
 		[key: string]: string
 	}
 }

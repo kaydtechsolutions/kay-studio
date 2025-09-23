@@ -26,6 +26,9 @@
 	/>
 	<div
 		class="pointer-events-auto absolute bottom-[-5px] right-[-5px] h-[12px] w-[12px] cursor-nwse-resize rounded-full border-[2.5px] border-blue-400 bg-white"
+		:class="{
+			'border-purple-400': targetBlock.isStudioComponent,
+		}"
 		v-show="!resizing"
 		@mousedown.stop="handleBottomCornerResize"
 	/>
@@ -38,7 +41,7 @@ import Block from "@/utils/block"
 import guidesTracker from "@/utils/guidesTracker"
 import useCanvasStore from "@/stores/canvasStore"
 
-import { CanvasProps } from "@/types/StudioCanvas"
+import type { CanvasProps } from "@/types/StudioCanvas"
 
 const props = defineProps({
 	targetBlock: {
@@ -165,8 +168,8 @@ const handleBottomResize = (ev: MouseEvent) => {
 const handleBottomCornerResize = (ev: MouseEvent) => {
 	const startX = ev.clientX
 	const startY = ev.clientY
-	const startHeight = (props.target as HTMLElement).offsetHeight
-	const startWidth = (props.target as HTMLElement).offsetWidth
+	const startHeight = (props.target as HTMLElement).offsetHeight || 0
+	const startWidth = (props.target as HTMLElement).offsetWidth || 0
 	const blockStartWidth = props.targetBlock.getStyle("width") as string
 	const blockStartHeight = props.targetBlock.getStyle("height") as string
 	const startFontSize = fontSize.value || 0

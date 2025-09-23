@@ -10,9 +10,3 @@
 import { Dialogs } from "frappe-ui"
 import { Toaster } from "vue-sonner"
 </script>
-
-<style>
-[id^="headlessui-dialog"] {
-	@apply z-50;
-}
-</style>

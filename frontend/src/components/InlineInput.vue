@@ -1,9 +1,7 @@
 <template>
 	<div
 		class="flex [&>div>input]:!bg-red-600 [&>div>input]:pr-6"
-		:class="
-			type === 'code' || type === 'textarea' ? 'flex-col gap-1.5' : 'flex-row items-center justify-between'
-		"
+		:class="type === 'textarea' ? 'flex-col gap-1.5' : 'flex-row items-center justify-between'"
 	>
 		<InputLabel
 			:class="[
@@ -31,19 +29,17 @@
 		<Autocomplete
 			v-if="type === 'autocomplete'"
 			placeholder="unset"
-			:modelValue="modelValue"
+			:modelValue="modelValue || ''"
 			:options="inputOptions"
 			@update:modelValue="handleChange"
 			:showInputAsOption="showInputAsOption"
 			class="w-full"
 			:disabled="disabled"
 		/>
-		<CodeEditor
-			v-else-if="type === 'code'"
+		<ColorInput
+			v-else-if="type === 'color'"
 			:modelValue="modelValue"
-			type="JavaScript"
-			:height="height"
-			@update:modelValue="(e) => emit('update:modelValue', e)"
+			@update:modelValue="handleChange"
 			:disabled="disabled"
 		/>
 		<Input
@@ -63,8 +59,8 @@ import { isNumber } from "@tiptap/vue-3"
 import { Popover } from "frappe-ui"
 import { PropType, computed } from "vue"
 import Input from "@/components/Input.vue"
-import CodeEditor from "@/components/CodeEditor.vue"
 import Autocomplete from "@/components/Autocomplete.vue"
+import ColorInput from "@/components/ColorInput.vue"
 import InputLabel from "@/components/InputLabel.vue"
 
 const props = defineProps({

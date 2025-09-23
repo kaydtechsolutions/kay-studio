@@ -112,10 +112,11 @@
 								default="String"
 								@change="() => setInitialValue()"
 							/>
-							<CodeEditor
+							<Code
 								v-if="variableRef.variable_type === 'Object'"
+								ref="variableEditor"
 								label="Initial Value"
-								type="JavaScript"
+								language="javascript"
 								height="250px"
 								:showLineNumbers="true"
 								v-model="variableRef.initial_value"
@@ -141,6 +142,8 @@
 							:label="variableRef.name ? 'Update' : 'Add'"
 							@click="
 								() => {
+									const validated = validateVariable(variableRef)
+									if (!validated) return
 									if (variableRef.name) {
 										editVariable(variableRef)
 									} else {
@@ -165,18 +168,17 @@ import CollapsibleSection from "@/components/CollapsibleSection.vue"
 import ObjectBrowser from "@/components/ObjectBrowser.vue"
 import EmptyState from "@/components/EmptyState.vue"
 import ResourceDialog from "@/components/ResourceDialog.vue"
-import CodeEditor from "@/components/CodeEditor.vue"
+import Code from "@/components/Code.vue"
 
-import { isObjectEmpty, getAutocompleteValues, confirm, copyToClipboard } from "@/utils/helpers"
-import { studioResources, studioPageResources } from "@/data/studioResources"
+import { isObjectEmpty, getAutocompleteValues, getParamsObj, confirm, copyToClipboard } from "@/utils/helpers"
+import { studioPageResources } from "@/data/studioResources"
 import { studioVariables } from "@/data/studioVariables"
-import { Variable } from "@/types/Studio/StudioPageVariable"
-import { NewResource, Resource } from "@/types/Studio/StudioResource"
+import type { Variable } from "@/types/Studio/StudioPageVariable"
+import type { Resource } from "@/types/Studio/StudioResource"
 import { toast } from "vue-sonner"
 
 /**
  * Insert resource into DB
- * Attach resource to page
  * fetch resources attached to page in store
  * show resources on the data panel
  */
@@ -191,10 +193,15 @@ watch(showResourceDialog, (show) => {
 	}
 })
 
-const attachResource = async (resource: Resource) => {
+const addResource = (resource: Resource) => {
+	if (!resource.resource_name) {
+		toast.error("Data Source Name is required")
+		return
+	}
+
 	studioPageResources.insert
 		.submit({
-			studio_resource: resource.name,
+			...getResourceValues(resource),
 			parent: store.activePage?.name,
 			parenttype: "Studio Page",
 			parentfield: "resources",
@@ -207,37 +214,14 @@ const attachResource = async (resource: Resource) => {
 		})
 }
 
-const addResource = (resource: NewResource) => {
-	if (resource.source === "Existing Data Source") {
-		attachResource(resource as unknown as Resource)
-		return
-	}
-	if (!resource.resource_name) {
-		toast.error("Data Source Name is required")
-		return
-	}
-
-	studioResources.insert.submit(getResourceValues(resource)).then((res: Resource) => {
-		studioPageResources.filters = { parent: store.activePage?.name }
-		attachResource(res)
-	})
-}
-
 const deleteResource = async (resource: Resource, resource_name: string) => {
 	const confirmed = await confirm(`Are you sure you want to delete the data source ${resource_name}?`)
 	if (confirmed) {
 		studioPageResources.delete
-			.submit(resource.resource_child_table_id)
+			.submit(resource.resource_id)
 			.then(async () => {
-				try {
-					// try deleting the main resource - will fail if linked to other pages
-					await studioResources.delete.submit(resource.resource_id)
-				} catch (error) {
-					console.log(`Failed to delete the main resource doc ${resource.resource_id}: ${error}`)
-				}
-
 				if (store.activePage) {
-					store.setPageResources(store.activePage)
+					await store.setPageResources(store.activePage)
 				}
 				toast.success(`Data Source ${resource_name} deleted successfully`)
 			})
@@ -248,7 +232,7 @@ const deleteResource = async (resource: Resource, resource_name: string) => {
 }
 
 const editResource = async (resource: Resource) => {
-	return studioResources.setValue
+	return studioPageResources.setValue
 		.submit(getResourceValues(resource))
 		.then(async () => {
 			if (store.activePage) {
@@ -262,12 +246,13 @@ const editResource = async (resource: Resource) => {
 		})
 }
 
-const getResourceValues = (resource: Resource | NewResource) => {
+const getResourceValues = (resource: Resource) => {
 	return {
 		...resource,
 		name: resource.resource_id,
 		fields: getAutocompleteValues(resource.fields),
 		whitelisted_methods: getAutocompleteValues(resource.whitelisted_methods),
+		params: getParamsObj(resource.params),
 	}
 }
 
@@ -279,7 +264,7 @@ const getResourceMenu = (resource: Resource, resource_name: string) => {
 			onClick: async () => {
 				studioPageResources.filters = {
 					parent: store.activePage?.name,
-					name: resource.resource_child_table_id,
+					name: resource.resource_id,
 				}
 				await studioPageResources.reload()
 
@@ -304,6 +289,7 @@ const getResourceMenu = (resource: Resource, resource_name: string) => {
 
 // variables
 const showVariableDialog = ref(false)
+const variableEditor = ref()
 const variableRef = ref<Variable>({
 	name: "",
 	variable_name: "",
@@ -431,5 +417,15 @@ const getVariableMenu = (variable_name: string, value: any) => {
 			},
 		},
 	]
+}
+
+const validateVariable = (variable: Variable) => {
+	if (variable.variable_type === "Object") {
+		variableEditor.value?.emitEditorValue()
+		if (variableEditor.value?.errorMessage) {
+			return false
+		}
+	}
+	return true
 }
 </script>

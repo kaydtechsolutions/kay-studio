@@ -1,4 +1,4 @@
-import { ref, reactive, nextTick, computed } from "vue"
+import { ref, reactive, nextTick, computed, toRaw } from "vue"
 import router from "@/router/studio_router"
 import { defineStore } from "pinia"
 
@@ -24,10 +24,10 @@ import useCanvasStore from "@/stores/canvasStore"
 import type { StudioApp } from "@/types/Studio/StudioApp"
 import type { StudioPage } from "@/types/Studio/StudioPage"
 import type { Resource } from "@/types/Studio/StudioResource"
-import { LeftPanelOptions, RightPanelOptions, SelectOption, StudioMode } from "@/types"
+import type { LeftPanelOptions, RightPanelOptions, leftPanelComponentTabOptions, StudioMode } from "@/types"
 import ComponentContextMenu from "@/components/ComponentContextMenu.vue"
 import { studioVariables } from "@/data/studioVariables"
-import { Variable } from "@/types/Studio/StudioPageVariable"
+import type { Variable, VariableOption } from "@/types/Studio/StudioPageVariable"
 import { toast } from "vue-sonner"
 import { createResource } from "frappe-ui"
 
@@ -38,6 +38,7 @@ const useStudioStore = defineStore("store", () => {
 		showLeftPanel: true,
 		showRightPanel: true,
 		leftPanelActiveTab: <LeftPanelOptions>"Add Component",
+		leftPanelComponentTab: <leftPanelComponentTabOptions> "Standard",
 		rightPanelActiveTab: <RightPanelOptions>"Properties",
 	})
 	const mode = ref<StudioMode>("select")
@@ -69,9 +70,15 @@ const useStudioStore = defineStore("store", () => {
 		})
 	}
 
-	async function setAppHome(appName: string, pageName: string) {
-		await studioApps.setValue.submit({ name: appName, app_home: pageName })
-		setApp(appName)
+	function updateActiveApp(key: string, value: string) {
+		studioApps.setValue.submit(
+			{ name: activeApp.value?.name, [key]: value },
+			{
+				onSuccess() {
+					setApp(activeApp.value!.name)
+				},
+			},
+		)
 	}
 
 	async function deleteAppPage(appName: string, page: StudioPage) {
@@ -143,6 +150,7 @@ const useStudioStore = defineStore("store", () => {
 		await setPageData(page)
 
 		const canvasStore = useCanvasStore()
+		canvasStore.editingMode = "page"
 		canvasStore.activeCanvas?.setRootBlock(pageBlocks.value[0])
 		canvasStore.activeCanvas?.clearSelection()
 
@@ -161,6 +169,7 @@ const useStudioStore = defineStore("store", () => {
 		const args = {
 			name: selectedPage.value,
 			draft_blocks: pageData,
+			_skip_validate: true,
 		}
 		return studioPages.setValue.submit(args)
 			.then((page: StudioPage) => {
@@ -173,7 +182,7 @@ const useStudioStore = defineStore("store", () => {
 
 	function updateActivePage(key: string, value: string) {
 		return studioPages.setValue.submit(
-			{ name: activePage.value?.name, [key]: value },
+			{ name: activePage.value?.name, [key]: value, _skip_validate: true },
 			{
 				onSuccess() {
 					activePage.value![key] = value
@@ -185,11 +194,17 @@ const useStudioStore = defineStore("store", () => {
 
 	async function publishPage() {
 		if (!selectedPage.value) return
+
+		try {
+			await generateAppBuild()
+		} catch (error) {
+			// continue to publish page even if app build generation fails
+		}
 		return studioPages.runDocMethod
 			.submit(
 				{
-				name: selectedPage.value,
-				method: "publish",
+					name: selectedPage.value,
+					method: "publish",
 				},
 				{
 					onError(error: any) {
@@ -214,10 +229,13 @@ const useStudioStore = defineStore("store", () => {
 			})
 	}
 
-	function openPageInBrowser(app: StudioApp, page: StudioPage) {
+	function openPageInBrowser(app: StudioApp, page: StudioPage, preview: boolean = false) {
 		let route = `/${app.route}${page.route}`
+		if (preview) {
+			route = `/dev${route}`
+		}
 		if (import.meta.env.DEV) {
-			route = `${window.site_url}/${app.route}${page.route}`
+			route = `${window.site_url}${route}`
 		}
 
 		const targetWindow = window.open(route, "studio-preview")
@@ -230,6 +248,39 @@ const useStudioStore = defineStore("store", () => {
 		}
 	}
 
+	const routeObject = computed(() => {
+		if (!activePage.value) return ""
+
+		const newRoute = toRaw(router.currentRoute.value)
+		// Extract param names from active page's route (e.g., ["employee", "id"] from "/hr/:employee/:id")
+		const paramNames = (activePage.value.route.match(/:\w+/g) || []).map(param => param.slice(1))
+		newRoute.params = paramNames.reduce((params, name) => {
+			params[name] = ""
+			return params
+		}, {} as Record<string, string>)
+
+		return newRoute
+	})
+
+	// build
+	function generateAppBuild() {
+		if (!activeApp.value) return
+		return studioApps.runDocMethod.submit({
+			name: activeApp.value.name,
+			method: "generate_app_build",
+		}, {
+			onSuccess() {
+				toast.success("App build generated")
+			},
+			onError(error: any) {
+				toast.warning("Skipped app build due to errors", {
+					description: error?.messages?.join(", "),
+					duration: Infinity,
+				})
+			},
+		})
+	}
+
 	// styles
 	const stylePropertyFilter = ref<string | null>(null)
 
@@ -239,8 +290,8 @@ const useStudioStore = defineStore("store", () => {
 	const variables = ref<Record<string, any>>({})
 
 	async function setPageData(page: StudioPage) {
-		await setPageResources(page)
 		await setPageVariables(page)
+		await setPageResources(page)
 	}
 
 	async function setPageResources(page: StudioPage) {
@@ -249,12 +300,15 @@ const useStudioStore = defineStore("store", () => {
 		resources.value = {}
 
 		const resourcePromises = studioPageResources.data.map(async (resource: Resource) => {
-			const newResource = await getNewResource(resource)
+			const newResource = await getNewResource(resource, {
+				...variables.value,
+				route: routeObject.value,
+			})
 			return {
 				resource_name: resource.resource_name,
 				value: newResource,
 				resource_id: resource.resource_id,
-				resource_child_table_id: resource.name,
+				resource_type: resource.resource_type,
 			}
 		})
 
@@ -264,7 +318,7 @@ const useStudioStore = defineStore("store", () => {
 			resources.value[item.resource_name] = item.value
 			if (!item.value) return
 			resources.value[item.resource_name].resource_id = item.resource_id
-			resources.value[item.resource_name].resource_child_table_id = item.resource_child_table_id
+			resources.value[item.resource_name].resource_type = item.resource_type
 		})
 	}
 
@@ -284,12 +338,17 @@ const useStudioStore = defineStore("store", () => {
 	}
 
 	const variableOptions = computed(() => {
-		const options: SelectOption[] = []
+		const options: VariableOption[] = []
 
 		function traverse(obj: any, path = "") {
 			for (const key in obj) {
 				const currentPath = path ? `${path}.${key}` : key
-				options.push({ value: currentPath, label: currentPath })
+				const variableType = path === "" ? variableConfigs.value[key]?.variable_type : typeof obj[key]
+				options.push({
+					value: currentPath,
+					label: currentPath,
+					type: variableType
+				})
 
 				if (typeof obj[key] === "object" && obj[key] !== null) {
 					// add nested properties
@@ -312,7 +371,7 @@ const useStudioStore = defineStore("store", () => {
 		// studio app
 		activeApp,
 		setApp,
-		setAppHome,
+		updateActiveApp,
 		deleteAppPage,
 		duplicateAppPage,
 		appPages,
@@ -329,6 +388,9 @@ const useStudioStore = defineStore("store", () => {
 		updateActivePage,
 		publishPage,
 		openPageInBrowser,
+		routeObject,
+		// app build
+		generateAppBuild,
 		// styles
 		stylePropertyFilter,
 		// data

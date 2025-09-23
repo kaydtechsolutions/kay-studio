@@ -1,25 +1,65 @@
 import { defineAsyncComponent, h } from "vue"
-import * as frappeUI from "frappe-ui"
-import Header from "@/components/AppLayout/Header.vue"
-import Sidebar from "@/components/AppLayout/Sidebar.vue"
-import SplitView from "@/components/AppLayout/SplitView.vue"
-import Repeater from "@/components/AppLayout/Repeater.vue"
-import CardList from "@/components/AppLayout/CardList.vue"
-import AvatarCard from "@/components/AppLayout/AvatarCard.vue"
-import Audio from "@/components/AppLayout/Audio.vue"
-import ImageView from "@/components/AppLayout/ImageView.vue"
-import TextBlock from "@/components/AppLayout/TextBlock.vue"
-import AppHeader from "@/components/AppLayout/AppHeader.vue"
-import BottomTabs from "@/components/AppLayout/BottomTabs.vue"
-import MarkdownEditor from "@/components/AppLayout/MarkdownEditor.vue"
+import { FRAPPE_UI_COMPONENTS } from "@/utils/constants"
 
-import { FrappeUIComponents, FrappeUIComponent } from "@/types"
+import type { FrappeUIComponents, FrappeUIComponent } from "@/types"
+
+import LucideCircleAlert from "~icons/lucide/circle-alert"
+import LucideTextSearch from "~icons/lucide/text-search"
+import LucideUser from "~icons/lucide/user"
+import LucideChevronsRight from "~icons/lucide/chevrons-right"
+import LucideBadgeCheck from "~icons/lucide/badge-check"
+import LucideRectangleHorizontal from "~icons/lucide/rectangle-horizontal"
+import LucideIdCard from "~icons/lucide/id-card"
+import LucideCircleCheck from "~icons/lucide/circle-check"
+import LucideCalendar from "~icons/lucide/calendar"
+import LucideCalendarCheck from "~icons/lucide/calendar-check"
+import LucideCalendarClock from "~icons/lucide/calendar-clock"
+import LucideCalendarSearch from "~icons/lucide/calendar-search"
+import LucideAppWindowMac from "~icons/lucide/app-window-mac"
+import LucideMinus from "~icons/lucide/minus"
+import LucideChevronDown from "~icons/lucide/chevron-down"
+import LucideCircleX from "~icons/lucide/circle-x"
+import LucideFeather from "~icons/lucide/feather"
+import LucideFileUp from "~icons/lucide/file-up"
+import LucideBookType from "~icons/lucide/book-type"
+import LucideTag from "~icons/lucide/tag"
+import LucideListCheck from "~icons/lucide/list-check"
+import LucideEllipsis from "~icons/lucide/ellipsis"
+import LucideMousePointer2 from "~icons/lucide/mouse-pointer-2"
+import LucideToggleLeft from "~icons/lucide/toggle-left"
+import LucideArrowRightLeft from "~icons/lucide/arrow-right-left"
+import LucideLetterText from "~icons/lucide/letter-text"
+import LucideALargeSmall from "~icons/lucide/a-large-small"
+import LucideEdit from "~icons/lucide/edit"
+import LucideMessageSquare from "~icons/lucide/message-square"
+import LucideListTree from "~icons/lucide/list-tree"
+import LucideRepeat from "~icons/lucide/repeat"
+import LucideFrame from "~icons/lucide/frame"
+import LucideSidebar from "~icons/lucide/sidebar"
+import LucideSquareSplitHorizontal from "~icons/lucide/square-split-horizontal"
+import LucideImage from "~icons/lucide/image"
+import LucideList from "~icons/lucide/list"
+import LucideMusic from "~icons/lucide/music"
+import LucideType from "~icons/lucide/type"
+import LucideFilePenLine from "~icons/lucide/file-pen-line"
+import LucideDollarSign from "~icons/lucide/dollar-sign"
+import LucideChartLine from "~icons/lucide/chart-line"
+import LucideChartPie from "~icons/lucide/chart-pie"
 
 export const COMPONENTS: FrappeUIComponents = {
+	TextBlock: {
+		name: "TextBlock",
+		title: "Text Block",
+		icon: LucideType,
+		initialState: {
+			fontSize: "text-sm",
+			fontWeight: "font-normal",
+		},
+	},
 	Alert: {
 		name: "Alert",
 		title: "Alert",
-		icon: "CircleAlert",
+		icon: LucideCircleAlert,
 		initialState: {
 			title: "This user is inactive",
 			type: "warning",
@@ -28,7 +68,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	Autocomplete: {
 		name: "Autocomplete",
 		title: "Autocomplete",
-		icon: "TextSearch",
+		icon: LucideTextSearch,
 		initialState: {
 			placeholder: "Select Person",
 			options: [
@@ -68,7 +108,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	Avatar: {
 		name: "Avatar",
 		title: "Avatar",
-		icon: "User",
+		icon: LucideUser,
 		initialState: {
 			shape: "circle",
 			size: "md",
@@ -79,7 +119,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	Badge: {
 		name: "Badge",
 		title: "Badge",
-		icon: "BadgeCheck",
+		icon: LucideBadgeCheck,
 		initialState: {
 			variant: "subtle",
 			theme: "green",
@@ -87,10 +127,27 @@ export const COMPONENTS: FrappeUIComponents = {
 			label: "Active",
 		},
 	},
+	Breadcrumbs: {
+		name: "Breadcrumbs",
+		title: "Breadcrumbs",
+		icon: LucideChevronsRight,
+		initialState: {
+			items: [
+				{
+					label: "Home",
+					route: { name: "Home" },
+				},
+				{
+					label: "List",
+					route: "/components/breadcrumbs",
+				},
+			],
+		},
+	},
 	Button: {
 		name: "Button",
 		title: "Button",
-		icon: "RectangleHorizontal",
+		icon: LucideRectangleHorizontal,
 		initialState: {
 			label: "Submit",
 			variant: "solid",
@@ -99,7 +156,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	Card: {
 		name: "Card",
 		title: "Card",
-		icon: "IdCard",
+		icon: LucideIdCard,
 		initialState: {
 			title: "John Doe",
 			subtitle: "Engineering Lead",
@@ -108,7 +165,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	Checkbox: {
 		name: "Checkbox",
 		title: "Checkbox",
-		icon: "CircleCheck",
+		icon: LucideCircleCheck,
 		initialState: {
 			label: "Enable feature",
 			padding: true,
@@ -118,7 +175,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	Calendar: {
 		name: "Calendar",
 		title: "Calendar",
-		icon: "Calendar",
+		icon: LucideCalendar,
 		initialState: {
 			config: {
 				defaultMode: "Month",
@@ -191,7 +248,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	DatePicker: {
 		name: "DatePicker",
 		title: "Date",
-		icon: "CalendarCheck",
+		icon: LucideCalendarCheck,
 		initialState: {
 			placeholder: "Select Date",
 		},
@@ -199,7 +256,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	DateTimePicker: {
 		name: "DateTimePicker",
 		title: "Date Time",
-		icon: "CalendarClock",
+		icon: LucideCalendarClock,
 		initialState: {
 			placeholder: "Select Date Time",
 		},
@@ -207,7 +264,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	DateRangePicker: {
 		name: "DateRangePicker",
 		title: "Date Range",
-		icon: "CalendarSearch",
+		icon: LucideCalendarSearch,
 		initialState: {
 			placeholder: "Select Date Range",
 		},
@@ -215,7 +272,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	Dialog: {
 		name: "Dialog",
 		title: "Dialog",
-		icon: "AppWindowMac",
+		icon: LucideAppWindowMac,
 		initialState: {
 			modelValue: false,
 			disableOutsideClickToClose: true,
@@ -238,28 +295,31 @@ export const COMPONENTS: FrappeUIComponents = {
 	Divider: {
 		name: "Divider",
 		title: "Divider",
-		icon: "Minus",
+		icon: LucideMinus,
 	},
 	Dropdown: {
 		name: "Dropdown",
 		title: "Dropdown",
-		icon: "ChevronDown",
+		icon: LucideChevronDown,
 		initialState: {
 			options: [
 				{
 					label: "Edit Title",
 					onClick: () => {},
-					icon: () => h(frappeUI.FeatherIcon, { name: "edit-2" }),
+					// @ts-ignore
+					icon: () => h(FeatherIcon, { name: "edit-2" }),
 				},
 				{
 					label: "Manage Members",
 					onClick: () => {},
-					icon: () => h(frappeUI.FeatherIcon, { name: "users" }),
+					// @ts-ignore
+					icon: () => h(FeatherIcon, { name: "users" }),
 				},
 				{
 					label: "Delete this project",
 					onClick: () => {},
-					icon: () => h(frappeUI.FeatherIcon, { name: "trash" }),
+					// @ts-ignore
+					icon: () => h(FeatherIcon, { name: "trash" }),
 				},
 			],
 			button: { label: "Actions" },
@@ -268,7 +328,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	ErrorMessage: {
 		name: "ErrorMessage",
 		title: "Error Message",
-		icon: "CircleX",
+		icon: LucideCircleX,
 		initialState: {
 			message: "Transaction failed due to insufficient balance",
 		},
@@ -276,7 +336,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	FeatherIcon: {
 		name: "FeatherIcon",
 		title: "FeatherIcon",
-		icon: "Feather",
+		icon: LucideFeather,
 		initialState: {
 			name: "activity",
 			class: "h-6 w-6",
@@ -285,7 +345,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	FileUploader: {
 		name: "FileUploader",
 		title: "File Uploader",
-		icon: "FileUp",
+		icon: LucideFileUp,
 		initialState: {
 			label: "Upload File",
 			fileTypes: "['image/*']",
@@ -294,18 +354,30 @@ export const COMPONENTS: FrappeUIComponents = {
 	FormControl: {
 		name: "FormControl",
 		title: "Form Control",
-		icon: "BookType",
+		icon: LucideBookType,
 		initialState: {
 			type: "text",
 			label: "Name",
 			placeholder: "John Doe",
 			autocomplete: "off",
 		},
+		additionalProps: {
+			modelValue: { required: false },
+			placeholder: { required: false, type: String },
+		},
+	},
+	FormLabel: {
+		name: "FormLabel",
+		title: "Form Label",
+		icon: LucideTag,
+		initialState: {
+			label: "Form Label",
+		},
 	},
 	ListView: {
 		name: "ListView",
 		title: "List View",
-		icon: "ListCheck",
+		icon: LucideListCheck,
 		initialState: {
 			columns: [
 				{
@@ -316,7 +388,8 @@ export const COMPONENTS: FrappeUIComponents = {
 						return row.name
 					},
 					prefix: function ({ row }: { row: any }) {
-						return h(frappeUI.Avatar, {
+						// @ts-ignore
+						return h(Avatar, {
 							shape: "circle",
 							image: row.user_image,
 							size: "sm",
@@ -361,7 +434,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	Progress: {
 		name: "Progress",
 		title: "Progress",
-		icon: "Ellipsis",
+		icon: LucideEllipsis,
 		initialState: {
 			value: 50,
 			size: "sm",
@@ -371,7 +444,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	Select: {
 		name: "Select",
 		title: "Select",
-		icon: "MousePointer2",
+		icon: LucideMousePointer2,
 		initialState: {
 			placeholder: "Person",
 			options: [
@@ -406,7 +479,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	Switch: {
 		name: "Switch",
 		title: "Switch",
-		icon: "ToggleLeft",
+		icon: LucideToggleLeft,
 		initialState: {
 			label: "Enable Notifications",
 			description: "Get notified when someone mentions you in a comment",
@@ -416,7 +489,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	Tabs: {
 		name: "Tabs",
 		title: "Tabs",
-		icon: "ArrowRightLeft",
+		icon: LucideArrowRightLeft,
 		initialState: {
 			as: "div",
 			tabs: [
@@ -441,7 +514,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	TabButtons: {
 		name: "TabButtons",
 		title: "Tab Buttons",
-		icon: "ArrowRightLeft",
+		icon: LucideArrowRightLeft,
 		initialState: {
 			buttons: [
 				{
@@ -458,7 +531,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	Textarea: {
 		name: "Textarea",
 		title: "Textarea",
-		icon: "LetterText",
+		icon: LucideLetterText,
 		initialState: {
 			placeholder: "Enter your message",
 		},
@@ -466,7 +539,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	TextInput: {
 		name: "TextInput",
 		title: "Text Input",
-		icon: "ALargeSmall",
+		icon: LucideALargeSmall,
 		initialState: {
 			placeholder: "Enter your name",
 		},
@@ -474,15 +547,20 @@ export const COMPONENTS: FrappeUIComponents = {
 	TextEditor: {
 		name: "TextEditor",
 		title: "Text Editor",
-		icon: "Edit",
+		icon: LucideEdit,
 		initialState: {
 			content: "Type something...",
+			editorClass: "prose-sm max-w-none min-h-[4rem] border rounded-b-lg border-t-0 p-2",
+			editable: true,
+			fixedMenu: true,
+			bubbleMenu: true,
 		},
+		useOverridenPropTypes: true,
 	},
 	Tooltip: {
 		name: "Tooltip",
 		title: "Tooltip",
-		icon: "MessageSquare",
+		icon: LucideMessageSquare,
 		initialState: {
 			text: "This is a tooltip",
 		},
@@ -490,7 +568,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	Tree: {
 		name: "Tree",
 		title: "Tree",
-		icon: "ListTree",
+		icon: LucideListTree,
 		initialState: {
 			options: {
 				showIndentationGuides: true,
@@ -540,27 +618,15 @@ export const COMPONENTS: FrappeUIComponents = {
 		},
 	},
 	// Studio Components
-	Container: {
-		name: "Container",
-		title: "Container",
-		icon: "AppWindow",
-	},
-	FitContainer: {
-		name: "FitContainer",
-		title: "Fit Container",
-		icon: "Maximize",
-	},
 	Repeater: {
 		name: "Repeater",
 		title: "Repeater",
-		icon: "Repeat",
-		props: Repeater.props,
+		icon: LucideRepeat,
 	},
 	Header: {
 		name: "Header",
 		title: "Header",
-		icon: "Frame",
-		props: Header.props,
+		icon: LucideFrame,
 		initialState: {
 			title: "Frappe",
 			menuItems: [
@@ -572,8 +638,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	Sidebar: {
 		name: "Sidebar",
 		title: "Sidebar",
-		icon: "Sidebar",
-		props: Sidebar.props,
+		icon: LucideSidebar,
 		initialState: {
 			title: "Frappe",
 			menuItems: [
@@ -586,15 +651,13 @@ export const COMPONENTS: FrappeUIComponents = {
 	SplitView: {
 		name: "SplitView",
 		title: "Split View",
-		icon: "SquareSplitHorizontal",
-		props: SplitView.props,
+		icon: LucideSquareSplitHorizontal,
 		initialSlots: ["left", "right"],
 	},
 	AvatarCard: {
 		name: "AvatarCard",
 		title: "Avatar Card",
-		icon: "Image",
-		props: AvatarCard.props,
+		icon: LucideImage,
 		initialState: {
 			title: "Up&Up",
 			subtitle: "Coldplay",
@@ -604,9 +667,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	CardList: {
 		name: "CardList",
 		title: "Card List",
-		icon: "List",
-		props: CardList.props,
-		emits: CardList.emits,
+		icon: LucideList,
 		initialState: {
 			title: "Card List",
 			cards: [
@@ -626,8 +687,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	Audio: {
 		name: "Audio",
 		title: "Audio",
-		icon: "Music",
-		props: Audio.props,
+		icon: LucideMusic,
 		initialState: {
 			file: "https://cdn.uppbeat.io/audio-output/208/3691/main-version/streaming-previews/STREAMING-achievement-philip-anderson-main-version-01-31-13804.mp3",
 		},
@@ -635,28 +695,16 @@ export const COMPONENTS: FrappeUIComponents = {
 	ImageView: {
 		name: "ImageView",
 		title: "Image View",
-		icon: "Image",
-		props: ImageView.props,
+		icon: LucideImage,
 		initialState: {
 			image: "https://blocks.astratic.com/img/general-img-square.png",
 			size: "xs",
 		},
 	},
-	TextBlock: {
-		name: "TextBlock",
-		title: "Text Block",
-		icon: "Type",
-		props: TextBlock.props,
-		initialState: {
-			fontSize: "text-md",
-			fontWeight: "font-normal",
-		},
-	},
 	AppHeader: {
 		name: "AppHeader",
 		title: "App Header",
-		icon: "Frame",
-		props: AppHeader.props,
+		icon: LucideFrame,
 		initialState: {
 			title: "Frappe",
 		},
@@ -664,8 +712,7 @@ export const COMPONENTS: FrappeUIComponents = {
 	BottomTabs: {
 		name: "BottomTabs",
 		title: "Bottom Tabs",
-		icon: "ArrowRightLeft",
-		props: BottomTabs.props,
+		icon: LucideArrowRightLeft,
 		initialState: {
 			tabs: [
 				{
@@ -684,12 +731,145 @@ export const COMPONENTS: FrappeUIComponents = {
 	MarkdownEditor: {
 		name: "MarkdownEditor",
 		title: "Markdown",
-		icon: "FilePenLine",
-		props: MarkdownEditor.props,
+		icon: LucideFilePenLine,
 		initialState: {
 			modelValue: "# This is a markdown editor",
 		},
-	}
+	},
+	NumberChart: {
+		name: "NumberChart",
+		title: "Number Chart",
+		icon: LucideDollarSign,
+		initialState: {
+			config: {
+				title: "Total Sales",
+				value: 123456,
+				prefix: "$",
+				delta: 10,
+				deltaSuffix: "% MoM",
+				negativeIsBetter: false,
+			},
+		},
+	},
+	AxisChart: {
+		name: "AxisChart",
+		title: "Axis Chart",
+		icon: LucideChartLine,
+		initialState: {
+			config: {
+				data: [
+					{
+						month: "2021-01-01",
+						sales: 200,
+					},
+					{
+						month: "2021-02-01",
+						sales: 300,
+					},
+					{
+						month: "2021-03-01",
+						sales: 250,
+					},
+					{
+						month: "2021-04-01",
+						sales: 350,
+					},
+					{
+						month: "2021-05-01",
+						sales: 400,
+					},
+					{
+						month: "2021-06-01",
+						sales: 300,
+					},
+				],
+				title: "Monthly Sales",
+				subtitle: "Sales data for first half of the year",
+				xAxis: {
+					key: "month",
+					type: "time",
+					title: "Month",
+					timeGrain: "month",
+				},
+				yAxis: {
+					title: "Amount ($)",
+					echartOptions: {
+						min: 0,
+						max: 800,
+					},
+				},
+				series: [
+					{
+						name: "sales",
+						type: "bar",
+					},
+				],
+			},
+		},
+	},
+	DonutChart: {
+		name: "DonutChart",
+		title: "Donut Chart",
+		icon: LucideChartPie,
+		initialState: {
+			config: {
+				data: [
+					{
+						product: "Apple Watch",
+						sales: 400,
+					},
+					{
+						product: "Services",
+						sales: 400,
+					},
+					{
+						product: "iMac",
+						sales: 350,
+					},
+					{
+						product: "Accessories",
+						sales: 350,
+					},
+					{
+						product: "iPad",
+						sales: 300,
+					},
+					{
+						product: "AirPods",
+						sales: 300,
+					},
+					{
+						product: "Apple TV",
+						sales: 300,
+					},
+					{
+						product: "Others",
+						sales: 300,
+					},
+					{
+						product: "Macbook",
+						sales: 250,
+					},
+					{
+						product: "Beats",
+						sales: 250,
+					},
+					{
+						product: "iPhone",
+						sales: 200,
+					},
+					{
+						product: "HomePod",
+						sales: 200,
+					},
+				],
+				title: "Product Sales Distribution",
+				subtitle: "Sales distribution across products",
+				categoryColumn: "product",
+				valueColumn: "sales",
+			},
+		},
+	},
 }
 
 const proxyComponentMap = new Map<string, any>()
@@ -699,41 +879,23 @@ Object.values(COMPONENTS).forEach((component: FrappeUIComponent) => {
 	}
 })
 
-function get(name: string) {
-	return COMPONENTS[name]
-}
-
 function isFrappeUIComponent(name: string) {
-	return name in frappeUI
+	return FRAPPE_UI_COMPONENTS.includes(name)
 }
 
 function getProxyComponent(name: string) {
 	return proxyComponentMap.get(name)
 }
 
-function getProps(name: string) {
-	if (name in frappeUI) {
-		return frappeUI[name]?.props
-	} else {
-		return COMPONENTS[name]?.props
-	}
-}
-
-function getEmits(name: string) {
-	if (name in frappeUI) {
-		return frappeUI[name]?.emits
-	} else {
-		return COMPONENTS[name]?.emits
-	}
+function get(name: string): FrappeUIComponent | undefined {
+	return COMPONENTS[name] || undefined
 }
 
 export default {
 	...COMPONENTS,
 	list: Object.values(COMPONENTS),
 	names: Object.keys(COMPONENTS),
-	get,
 	getProxyComponent,
-	getProps,
-	getEmits,
 	isFrappeUIComponent,
+	get,
 }

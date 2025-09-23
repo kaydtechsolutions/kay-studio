@@ -11,9 +11,9 @@
 		<span
 			v-if="!props.block.isRoot()"
 			class="absolute -top-3 left-0 inline-block text-xs"
-			:class="isBlockSelected ? 'bg-blue-500 text-white' : 'text-blue-500'"
+			:class="componentLabelClasses"
 		>
-			{{ block.componentName }}
+			{{ block.getBlockDescription() }}
 		</span>
 
 		<PaddingHandler
@@ -70,11 +70,10 @@
 		}"
 	>
 		<template #body-content>
-			<CodeEditor
-				:modelValue="block.getSlotContent(canvasStore.activeCanvas?.selectedSlot?.slotName) || ''"
-				type="HTML"
+			<Code
+				:modelValue="block.getSlotContent(store.selectedSlot?.slotName) || ''"
+				language="html"
 				height="60vh"
-				:showLineNumbers="true"
 				:showSaveButton="true"
 				@save="
 					(val) => {
@@ -83,7 +82,6 @@
 						store.showSlotEditorDialog = false
 					}
 				"
-				required
 			/>
 		</template>
 	</Dialog>
@@ -95,14 +93,14 @@ import { Dialog } from "frappe-ui"
 import BoxResizer from "@/components/BoxResizer.vue"
 import PaddingHandler from "@/components/PaddingHandler.vue"
 import MarginHandler from "@/components/MarginHandler.vue"
-import CodeEditor from "@/components/CodeEditor.vue"
+import Code from "@/components/Code.vue"
 
 import Block from "@/utils/block"
 import useStudioStore from "@/stores/studioStore"
 import useCanvasStore from "@/stores/canvasStore"
 import trackTarget, { Tracker } from "@/utils/trackTarget"
 
-import { CanvasProps } from "@/types/StudioCanvas"
+import type { CanvasProps } from "@/types/StudioCanvas"
 
 const props = defineProps({
 	block: {
@@ -148,7 +146,13 @@ const isSlotSelected = (slotId: string) => {
 }
 
 const getStyleClasses = computed(() => {
-	const classes = ["ring-blue-400"]
+	const classes = []
+
+	if (props.block.isStudioComponent) {
+		classes.push("ring-purple-400")
+	} else {
+		classes.push("ring-blue-400")
+	}
 
 	if (isBlockSelected.value && !props.block.isRoot() && !canvasStore.isDragging) {
 		// make editor interactive
@@ -157,6 +161,14 @@ const getStyleClasses = computed(() => {
 		classes.push("!z-[19]")
 	}
 	return classes
+})
+
+const componentLabelClasses = computed(() => {
+	if (isBlockSelected.value) {
+		return props.block.isStudioComponent ? "bg-purple-500 text-white" : "bg-blue-500 text-white"
+	} else {
+		return props.block.isStudioComponent ? "text-purple-500" : "text-blue-500"
+	}
 })
 
 const preventClick = ref(false)

@@ -32,6 +32,7 @@ export type FieldTypes =
 	| "Percent"
 	| "Rating"
 	| "Icon"
+	| "Autocomplete"
 
 // Grid
 export interface GridColumn {
@@ -41,9 +42,11 @@ export interface GridColumn {
 	options?: string | string[]
 	width?: number
 	onChange?: (value: string, index: number) => void
+	// for code field
+	completions?: Function | null
 }
 
 export interface GridRow {
 	name: string
-	[fieldname: string]: string | number | boolean
+	[fieldname: string]: string | number | boolean | unknown
 }

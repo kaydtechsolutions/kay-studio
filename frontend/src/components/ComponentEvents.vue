@@ -32,16 +32,20 @@
 				v-model="showAddEventDialog"
 				:options="{
 					title: newEvent.isEditing ? 'Edit Event' : 'Add Event',
-					size: '2xl',
+					size: '3xl',
 					actions: [
 						{
 							label: newEvent.isEditing ? 'Update' : 'Add',
 							variant: 'solid',
 							onClick: () => {
+								const event = getEvent(newEvent)
 								if (newEvent.isEditing) {
-									block?.updateEvent(newEvent)
+									block?.updateEvent(event)
 								} else {
-									block?.addEvent(newEvent)
+									if (newEvent.page) {
+										newEvent.page = store.getAppPageRoute(newEvent.page)
+									}
+									block?.addEvent(event)
 								}
 								showAddEventDialog = false
 							},
@@ -74,6 +78,84 @@
 							v-on="control.events || {}"
 							:class="control.class || ''"
 						/>
+
+						<template v-if="['Insert a Document', 'Call API'].includes(newEvent.action)">
+							<!-- Success Section -->
+							<div class="border-t border-gray-200 pt-4">
+								<div class="mb-3">
+									<h3 class="mb-2 text-sm font-medium text-gray-900">On Success</h3>
+									<TabButtons
+										:buttons="[
+											{ label: 'Message', value: 'message' },
+											{ label: 'Script', value: 'script' },
+										]"
+										v-model="newEvent.on_success"
+										class="!w-fit"
+									/>
+								</div>
+								<FormControl
+									v-if="newEvent.on_success === 'message'"
+									type="textarea"
+									label="Success Message"
+									v-model="newEvent.success_message"
+									autocomplete="off"
+									:description="
+										newEvent.action === 'Insert a Document'
+											? `Default: ${newEvent.doctype} created successfully`
+											: ''
+									"
+								/>
+								<Code
+									v-else
+									label="Script"
+									:completions="
+										(context: CompletionContext) =>
+											getEditorCompletions(context, props.block?.getCompletions())
+									"
+									:emitOnChange="true"
+									:modelValue="newEvent.on_success_script?.toString()"
+									@update:modelValue="(val: string) => (newEvent.on_success_script = val)"
+								/>
+							</div>
+
+							<!-- Failure Section -->
+							<div class="border-t border-gray-200 pt-4">
+								<div class="mb-3">
+									<h3 class="mb-2 text-sm font-medium text-gray-900">On Failure</h3>
+									<TabButtons
+										:buttons="[
+											{ label: 'Message', value: 'message' },
+											{ label: 'Script', value: 'script' },
+										]"
+										v-model="newEvent.on_error"
+										class="!w-fit"
+									/>
+								</div>
+								<FormControl
+									v-if="newEvent.on_error === 'message'"
+									type="textarea"
+									label="Error Message"
+									v-model="newEvent.error_message"
+									autocomplete="off"
+									:description="
+										newEvent.action === 'Insert a Document'
+											? `Default: Failed to create ${newEvent.doctype}`
+											: ''
+									"
+								/>
+								<Code
+									v-else
+									label="Script"
+									:completions="
+										(context: CompletionContext) =>
+											getEditorCompletions(context, props.block?.getCompletions())
+									"
+									:emitOnChange="true"
+									:modelValue="newEvent.on_error_script?.toString()"
+									@update:modelValue="(val: string) => (newEvent.on_error_script = val)"
+								/>
+							</div>
+						</template>
 					</div>
 				</template>
 			</Dialog>
@@ -84,40 +166,49 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from "vue"
-import { FormControl, createResource, Dialog } from "frappe-ui"
+import { ref, computed, watch, resolveComponent } from "vue"
+import { FormControl, createResource, Dialog, TabButtons } from "frappe-ui"
 import useStudioStore from "@/stores/studioStore"
 import Block from "@/utils/block"
 import EmptyState from "@/components/EmptyState.vue"
 
-import { isObjectEmpty, confirm } from "@/utils/helpers"
-import { getComponentEvents } from "@/utils/components"
+import { isObjectEmpty, confirm, getParamsArray, getParamsObj } from "@/utils/helpers"
 
-import { SelectOption } from "@/types"
-import { Actions, ActionConfigurations, ComponentEvent } from "@/types/ComponentEvent"
+import type { SelectOption } from "@/types"
+import type { Actions, ActionConfigurations, ComponentEvent } from "@/types/ComponentEvent"
 import Link from "@/components/Link.vue"
 import Grid from "@/components/Grid.vue"
-import CodeEditor from "@/components/CodeEditor.vue"
-import { DocTypeField } from "@/types"
+import Code from "@/components/Code.vue"
+import { useStudioCompletions } from "@/utils/useStudioCompletions"
+import type { DocTypeField } from "@/types"
 import { toast } from "vue-sonner"
+import type { CompletionContext } from "@codemirror/autocomplete"
 
 const props = defineProps<{
 	block?: Block
 }>()
 const store = useStudioStore()
+const getEditorCompletions = useStudioCompletions(true)
+const getCompletions = useStudioCompletions()
 
 const showAddEventDialog = ref(false)
 const emptyEvent: ComponentEvent = {
-	event: "",
-	action: "Call API",
+	event: "click",
+	action: "Run Script",
 	page: "",
 	url: "",
+	// call api
 	api_endpoint: "",
+	params: [],
 	// insert document
 	doctype: "",
 	fields: [],
+	on_success: "message",
 	success_message: "",
+	on_success_script: "",
+	on_error: "message",
 	error_message: "",
+	on_error_script: "",
 	// run script
 	script: "",
 }
@@ -138,11 +229,19 @@ const eventOptions = computed(() => {
 	]
 })
 
+function getComponentEvents(name: string) {
+	const component = resolveComponent(name)
+	if (typeof component === "string" || !component) {
+		return []
+	}
+	return component?.emits || []
+}
+
 const doctypeFields = ref<{ label: string; value: string }[]>([])
 watch(
 	() => newEvent.value.doctype,
 	async (value, oldValue) => {
-		if (value === oldValue) return
+		if (value === oldValue || !value) return
 
 		const fields = createResource({
 			url: "studio.api.get_doctype_fields",
@@ -172,78 +271,25 @@ watch(
 	},
 )
 
-const successFailureFields = [
-	{
-		component: FormControl,
-		getProps: () => {
-			return {
-				type: "textarea",
-				label: "Success Message",
-				modelValue: newEvent.value.success_message,
-				autocomplete: "off",
-			}
-		},
-		events: {
-			"update:modelValue": (val: string) => {
-				newEvent.value.success_message = val
-			},
-		},
-	},
-	{
-		component: FormControl,
-		getProps: () => {
-			return {
-				type: "textarea",
-				label: "Error Message",
-				modelValue: newEvent.value.error_message,
-				autocomplete: "off",
-			}
-		},
-		events: {
-			"update:modelValue": (val: string) => {
-				newEvent.value.error_message = val
-			},
-		},
-	},
-]
-
 const actions: ActionConfigurations = {
-	"Switch App Page": [
+	"Run Script": [
 		{
-			component: FormControl,
+			component: Code,
 			getProps: () => {
 				return {
-					type: "autocomplete",
-					options: Object.values(store.appPages || [])?.map((page) => {
-						return {
-							value: page.name,
-							label: page.page_title,
-						}
-					}),
-					label: "Page",
-					modelValue: newEvent.value.page,
+					label: "Script",
+					language: "javascript",
+					modelValue: newEvent.value.script,
+					height: "400px",
+					maxHeight: "400px",
+					emitOnChange: true,
+					completions: (context: CompletionContext) =>
+						getEditorCompletions(context, props.block?.getCompletions()),
 				}
 			},
 			events: {
-				"update:modelValue": (val: SelectOption) => {
-					newEvent.value.page = val.value
-				},
-			},
-		},
-	],
-	"Open Webpage": [
-		{
-			component: FormControl,
-			getProps: () => {
-				return {
-					type: "input",
-					label: "URL",
-					modelValue: newEvent.value.url,
-				}
-			},
-			events: {
-				"update:modelValue": (val: string) => {
-					newEvent.value.url = val
+				"update:modelValue": (val: any) => {
+					newEvent.value.script = val
 				},
 			},
 		},
@@ -265,7 +311,30 @@ const actions: ActionConfigurations = {
 				},
 			},
 		},
-		...successFailureFields,
+		{
+			component: Grid,
+			getProps: () => {
+				return {
+					label: "Parameters",
+					columns: [
+						{ label: "Key", fieldname: "key", fieldtype: "Data" },
+						{
+							label: "Value",
+							fieldname: "value",
+							fieldtype: "Code",
+							completions: getCompletions,
+						},
+					],
+					rows: newEvent.value.params || [],
+					showDeleteBtn: true,
+				}
+			},
+			events: {
+				"update:rows": (val: any) => {
+					newEvent.value.params = val
+				},
+			},
+		},
 	],
 	"Insert a Document": [
 		{
@@ -308,22 +377,43 @@ const actions: ActionConfigurations = {
 				},
 			},
 		},
-		...successFailureFields,
 	],
-	"Run Script": [
+	"Switch App Page": [
 		{
-			component: CodeEditor,
+			component: FormControl,
 			getProps: () => {
 				return {
-					label: "Script",
-					type: "JavaScript",
-					modelValue: newEvent.value.script,
-					showLineNumbers: true,
+					type: "autocomplete",
+					options: Object.values(store.appPages || [])?.map((page) => {
+						return {
+							value: page.name,
+							label: page.page_title,
+						}
+					}),
+					label: "Page",
+					modelValue: newEvent.value.page,
 				}
 			},
 			events: {
-				"update:modelValue": (val: any) => {
-					newEvent.value.script = val
+				"update:modelValue": (val: SelectOption) => {
+					newEvent.value.page = val.value
+				},
+			},
+		},
+	],
+	"Open Webpage": [
+		{
+			component: FormControl,
+			getProps: () => {
+				return {
+					type: "input",
+					label: "URL",
+					modelValue: newEvent.value.url,
+				}
+			},
+			events: {
+				"update:modelValue": (val: string) => {
+					newEvent.value.url = val
 				},
 			},
 		},
@@ -333,6 +423,75 @@ const actions: ActionConfigurations = {
 const actionControls = computed(() => {
 	return actions[newEvent.value.action] || []
 })
+
+function getFnBoilerplate(event: "success" | "error") {
+	if (event === "success") {
+		return "function onSuccess(data) {}"
+	} else {
+		return "function onError(error) {}"
+	}
+}
+
+watch(
+	() => [newEvent.value.on_success, newEvent.value.on_error],
+	() => {
+		if (newEvent.value.on_success === "script" && !newEvent.value.on_success_script) {
+			newEvent.value.on_success_script = getFnBoilerplate("success")
+		}
+		if (newEvent.value.on_error === "script" && !newEvent.value.on_error_script) {
+			newEvent.value.on_error_script = getFnBoilerplate("error")
+		}
+	},
+)
+
+function getEvent(event: ComponentEvent): ComponentEvent {
+	let _event: ComponentEvent = {
+		event: event.event,
+		action: event.action,
+	}
+	if (event.action === "Run Script") {
+		_event.script = event.script || ""
+	} else if (event.action === "Call API") {
+		_event.api_endpoint = event.api_endpoint
+		setEventCallbackFields(_event, event)
+		if (Array.isArray(event.params)) {
+			_event.params = getParamsObj(event.params)
+		}
+	} else if (event.action === "Insert a Document") {
+		_event.doctype = event.doctype
+		_event.fields = event.fields
+		setEventCallbackFields(_event, event)
+	} else if (event.action === "Switch App Page") {
+		if (event.page) {
+			_event.page = store.getAppPageRoute(event.page)
+		}
+	} else if (event.action === "Open Webpage") {
+		_event.url = event.url
+	}
+
+	return _event
+}
+
+function setEventCallbackFields(targetEvent: ComponentEvent, sourceEvent: ComponentEvent) {
+	targetEvent.on_success = sourceEvent.on_success
+	targetEvent.on_error = sourceEvent.on_error
+
+	if (sourceEvent.on_success === "message") {
+		if (sourceEvent.success_message) {
+			targetEvent.success_message = sourceEvent.success_message
+		}
+	} else if (sourceEvent.on_success === "script") {
+		targetEvent.on_success_script = sourceEvent.on_success_script
+	}
+
+	if (sourceEvent.on_error === "message") {
+		if (sourceEvent.error_message) {
+			targetEvent.error_message = sourceEvent.error_message
+		}
+	} else if (sourceEvent.on_error === "script") {
+		targetEvent.on_error_script = sourceEvent.on_error_script
+	}
+}
 
 // Event Menu
 const deleteEvent = async (event: ComponentEvent) => {
@@ -355,7 +514,12 @@ const getEventMenu = (event: ComponentEvent) => {
 			label: "Edit",
 			icon: "edit",
 			onClick: async () => {
-				newEvent.value = { ...event, isEditing: true, oldEvent: event.event }
+				newEvent.value = {
+					...event,
+					isEditing: true,
+					oldEvent: event.event,
+					params: getParamsArray(event.params),
+				}
 				showAddEventDialog.value = true
 			},
 		},

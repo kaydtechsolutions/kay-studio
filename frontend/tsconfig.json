@@ -35,7 +35,10 @@
 	  "tests/**/*.tsx",
 	  "src/scripts/tsToJSONGenerator.ts",
 	  "src/utils/tsToJSON/index.ts",
-	  "src/utils/tsToJSON/customParser.ts"
+	  "src/utils/tsToJSON/customParser.ts",
+	  "src/utils/build.js",
+	  "./auto-imports.d.ts",
+	  "./components.d.ts"
 	],
 	"exclude": [
 	  "node_modules"

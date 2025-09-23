@@ -1,15 +1,17 @@
-import { BlockOptions, BlockStyleMap, Slot } from "@/types"
+import type { BlockOptions, BlockStyleMap, CompletionSource, Slot } from "@/types"
 import { clamp } from "@vueuse/core"
-import { reactive, CSSProperties, nextTick } from 'vue'
+import { reactive, CSSProperties, nextTick, computed } from 'vue'
 
-import useStudioStore from "@/stores/studioStore"
 import useCanvasStore from "@/stores/canvasStore"
+import useComponentStore from "@/stores/componentStore"
+import LucideHash from "~icons/lucide/hash"
+import LucideAppWindow from "~icons/lucide/app-window"
+import LucideBox from "~icons/lucide/box"
 
-import components from "@/data/components";
-import { copyObject, generateId, getBlockCopy, isObjectEmpty, kebabToCamelCase, numberToPx } from "./helpers";
+import { copyObject, generateId, getBlockCopy, getComponentBlock, isObjectEmpty, kebabToCamelCase, numberToPx } from "./helpers";
 
-import { StyleValue } from "@/types"
-import { ComponentEvent } from "@/types/ComponentEvent"
+import type { StyleValue, FrappeUIComponents } from "@/types"
+import type { ComponentEvent } from "@/types/ComponentEvent"
 
 export type styleProperty = keyof CSSProperties | `__${string}`;
 class Block implements BlockOptions {
@@ -19,7 +21,6 @@ class Block implements BlockOptions {
 	componentSlots: Record<string, Slot>
 	componentEvents: Record<string, any>
 	blockName: string
-	originalElement?: string | undefined
 	children: Block[]
 	parentBlock: Block | null
 	baseStyles: BlockStyleMap
@@ -27,8 +28,19 @@ class Block implements BlockOptions {
 	mobileStyles: BlockStyleMap
 	tabletStyles: BlockStyleMap
 	visibilityCondition?: string
+	originalElement?: string
 	classes?: string[]
 	parentSlotName?: string
+	// studio component specific
+	isStudioComponent?: boolean
+	isChildOfComponent?: string
+	extendedFromComponent?: Block // for the component root
+	// temporary properties
+	repeaterDataItem?: Record<string, any> | null
+	componentContext?: Record<string, any> | null
+
+	// @editor-only
+	private static components: FrappeUIComponents | null = null
 
 	constructor(options: BlockOptions) {
 		this.componentName = options.componentName
@@ -48,16 +60,22 @@ class Block implements BlockOptions {
 			this.componentId = options.componentId
 		}
 
+		if (options.isStudioComponent) {
+			this.isStudioComponent = options.isStudioComponent
+			const componentStore = useComponentStore()
+			componentStore.loadComponent(this.componentName)
+		}
+
 		// get component props
 		if (!options.componentProps) {
-			this.componentProps = copyObject(components.get(options.componentName)?.initialState)
+			this.componentProps = copyObject(Block.components?.[options.componentName]?.initialState)
 		} else {
 			this.componentProps = options.componentProps
 		}
 
 		this.componentSlots = options.componentSlots || {}
 		if (!options.componentSlots) {
-			let slots = components.get(options.componentName)?.initialSlots || []
+			let slots = Block.components?.[options.componentName]?.initialSlots || []
 			slots.forEach((slot) => {
 				this.addSlot(slot)
 			})
@@ -65,6 +83,21 @@ class Block implements BlockOptions {
 
 		this.componentEvents = options.componentEvents || {}
 		this.initializeSlots()
+
+		// Define as non-reactive property
+		Object.defineProperty(this, "repeaterDataItem", {
+			value: options.repeaterDataItem || null,
+			writable: true,
+			enumerable: false,
+			configurable: true
+		})
+		Object.defineProperty(this, "componentContext", {
+			value: options.componentContext || null,
+			writable: true,
+			enumerable: false,
+			configurable: true
+		})
+
 		if (options.parentSlotName) {
 			this.parentSlotName = options.parentSlotName
 		}
@@ -75,6 +108,14 @@ class Block implements BlockOptions {
 			child.parentBlock = this;
 			return reactive(new Block(child))
 		})
+	}
+
+	static setComponents(components: FrappeUIComponents) {
+		Block.components = components
+	}
+
+	static getComponents() {
+		return Block.components
 	}
 
 	generateComponentId(componentName?: string | null): string {
@@ -185,7 +226,7 @@ class Block implements BlockOptions {
 	}
 
 	isContainer() {
-		return this.originalElement === "div"
+		return this.originalElement === "div" || this.componentName === "FitContainer"
 	}
 
 	getParentBlock(): Block | null {
@@ -210,20 +251,32 @@ class Block implements BlockOptions {
 	}
 
 	getIcon() {
-		if (this.isRoot()) return "Hash"
-		return components.get(this.componentName)?.icon
+		switch(true) {
+			case this.isRoot():
+				return LucideHash
+			case this.componentName === "container":
+				return LucideAppWindow
+			case this.isStudioComponent:
+				return LucideBox
+			default:
+				return Block.components?.[this.componentName]?.icon || LucideHash
+		}
 	}
 
 	getBlockDescription() {
+		if (this.isStudioComponent) {
+			const componentStore = useComponentStore()
+			return componentStore.getComponentName(this.componentName)
+		}
 		return this.blockName || this.originalElement
 	}
 
 	editInFragmentMode() {
-		return components.get(this.componentName)?.editInFragmentMode
+		return Block.components?.[this.componentName]?.editInFragmentMode
 	}
 
 	getProxyComponent() {
-		return components.get(this.componentName)?.proxyComponent
+		return Block.components?.[this.componentName]?.proxyComponent
 	}
 
 	// styles
@@ -587,13 +640,53 @@ class Block implements BlockOptions {
 		return this.componentName === "Repeater"
 	}
 
+	setRepeaterDataItem(repeaterDataItem: Record<string, any>) {
+		// temporarily set repeater data item on selected block for autocompletions
+		this.repeaterDataItem = repeaterDataItem
+	}
+
+	getCompletions(): CompletionSource[] {
+		const completions = []
+		if (this.repeaterDataItem) {
+			completions.push(
+				{
+					item: this.repeaterDataItem,
+					completion: {
+						label: "dataItem",
+						type: "data",
+						detail: "Repeater Data Item",
+					}
+				}
+			)
+			completions.push(
+				{
+					item: "dataIndex",
+					completion: {
+						label: "dataIndex",
+						type: "data",
+						detail: "Repeater Data Index",
+					}
+				}
+			)
+		}
+		if (this.componentContext) {
+			completions.push(
+				{
+					item: this.componentContext.inputs || {},
+					completion: {
+						label: "inputs",
+						type: "data",
+						detail: "Component Context",
+					}
+				},
+			)
+		}
+
+		return completions
+	}
+
 	// events
 	addEvent(event: ComponentEvent) {
-		const pageName = event.page
-		if (pageName) {
-			const store = useStudioStore()
-			event.page = store.getAppPageRoute(pageName)
-		}
 		this.componentEvents[event.event] = event
 	}
 
@@ -607,6 +700,40 @@ class Block implements BlockOptions {
 
 	removeEvent(eventName: string) {
 		delete this.componentEvents[eventName]
+	}
+
+	// studio components
+	extendFromComponent(componentName: string) {
+		let parentBlock = this.getParentBlock()
+		const newBlock = getComponentBlock(componentName, true)
+
+		// If this is a slot block, preserve the slot information
+		if (this.isSlotBlock()) {
+			newBlock.parentSlotName = this.parentSlotName
+		}
+
+		parentBlock?.replaceChild(this, newBlock)
+	}
+
+	initializeStudioComponent(studioComponent: Block) {
+		this.componentId = studioComponent.componentId
+		this.extendedFromComponent = studioComponent
+
+		function linkParentComponentId(block: Block, studioComponentId: string) {
+			block.children?.forEach((child) => {
+				child.isChildOfComponent = studioComponentId
+				child.classes?.push("__studio_component_child__")
+				if (child.children?.length) {
+					linkParentComponentId(child, studioComponentId)
+				}
+			})
+		}
+		linkParentComponentId(this, studioComponent.componentId)
+	}
+
+	setComponentContext(componentContext: Record<string, any>) {
+		// temporarily set componentContext on selected block for autocompletions
+		this.componentContext = componentContext
 	}
 }
 

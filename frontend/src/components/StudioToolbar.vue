@@ -14,7 +14,7 @@
 					</div>
 				</template>
 			</Dropdown>
-
+			<ExportAppDialog v-if="canExportApp" v-model:showDialog="showExportAppDialog" />
 			<div class="flex gap-2">
 				<Tooltip
 					:text="mode.description"
@@ -36,7 +36,7 @@
 		</div>
 
 		<div>
-			<Popover transition="default" placement="bottom" popoverClass="!absolute top-0 !mt-[20px]">
+			<Popover transition="default" placement="bottom" popoverClass="!mt-[20px]">
 				<template #target="{ togglePopover, isOpen }">
 					<div class="flex cursor-pointer items-center gap-2 p-2">
 						<div class="flex h-6 items-center text-base text-gray-800" v-if="!store.activePage">
@@ -56,8 +56,7 @@
 							v-if="store.activePage && store.activePage.published"
 							class="h-[14px] w-[14px] !text-gray-700 dark:!text-gray-200"
 							@click="store.openPageInBrowser(store.activeApp!, store.activePage)"
-						>
-						</FeatherIcon>
+						></FeatherIcon>
 					</div>
 				</template>
 				<template #body="{ isOpen }">
@@ -76,11 +75,33 @@
 			</Popover>
 		</div>
 
-		<div class="absolute right-3 flex items-center">
+		<div class="absolute right-3 flex items-center gap-2">
+			<Tooltip
+				:text="store.activeApp?.is_standard ? 'App Export is enabled' : 'App Export Settings'"
+				:hoverDelay="0.6"
+				v-if="canExportApp"
+			>
+				<Button
+					size="sm"
+					variant="subtle"
+					:icon="LucideArrowUpFromLine"
+					label="Export App"
+					@click="() => (showExportAppDialog = true)"
+				/>
+			</Tooltip>
+			<Button
+				size="sm"
+				variant="subtle"
+				:disabled="canvasStore.showFragmentCanvas"
+				@click="() => store.openPageInBrowser(store.activeApp!, store.activePage!, true)"
+			>
+				Preview
+			</Button>
 			<Button
 				size="sm"
 				variant="solid"
-				:disabled="canvasStore.editingMode === 'fragment'"
+				:disabled="canvasStore.showFragmentCanvas"
+				:loading="publishing"
 				@click="
 					() => {
 						publishing = true
@@ -96,19 +117,24 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue"
-import { Tooltip } from "frappe-ui"
+import { Tooltip, Popover } from "frappe-ui"
 import useStudioStore from "@/stores/studioStore"
 import useCanvasStore from "@/stores/canvasStore"
 
 import PageOptions from "@/components/PageOptions.vue"
 import StudioLogo from "@/components/Icons/StudioLogo.vue"
+import ExportAppDialog from "@/components/ExportAppDialog.vue"
 
 import type { StudioMode } from "@/types"
 import session from "@/utils/session"
+import LucideArrowUpFromLine from "~icons/lucide/arrow-up-from-line"
+import { isObjectEmpty } from "@/utils/helpers"
 
 const store = useStudioStore()
 const canvasStore = useCanvasStore()
 const publishing = ref(false)
 
 const routeString = computed(() => store.activePage?.route || "/")
+const showExportAppDialog = ref(false)
+const canExportApp = computed(() => window.is_developer_mode && !isObjectEmpty(store.activeApp))
 </script>

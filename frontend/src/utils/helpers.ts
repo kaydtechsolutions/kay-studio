@@ -1,16 +1,20 @@
 import { reactive, toRaw, h, Ref, toRefs } from "vue"
 import Block from "./block"
 import getBlockTemplate from "./blockTemplate"
-import * as frappeUI from "frappe-ui"
 import { createDocumentResource, createListResource, createResource, confirmDialog } from "frappe-ui"
 import { toast } from "vue-sonner"
 
-import { ObjectLiteral, BlockOptions, StyleValue, ExpressionEvaluationContext, SelectOption, HashString, RGBString } from "@/types"
-import { DataResult, DocumentResource, DocumentResult, Filters, Resource } from "@/types/Studio/StudioResource"
-import { Variable } from "@/types/Studio/StudioPageVariable"
+import type { ObjectLiteral, BlockOptions, StyleValue, ExpressionEvaluationContext, SelectOption, HashString, RGBString } from "@/types"
+import type { DataResult, DocumentResource, DocumentResult, Filters, Resource } from "@/types/Studio/StudioResource"
+import type { Variable } from "@/types/Studio/StudioPageVariable"
+import { call } from "frappe-ui"
 
 function getBlockString(block: BlockOptions | Block): string {
 	return jsToJson(getBlockCopyWithoutParent(block))
+}
+
+function getBlockObjectCopy(block: BlockOptions | Block): BlockOptions {
+	return jsonToJs(getBlockString(block))
 }
 
 function getBlockInstance(options: BlockOptions | string, retainId = true): Block {
@@ -46,8 +50,8 @@ function getBlockInstance(options: BlockOptions | string, retainId = true): Bloc
 	return reactive(new Block(options))
 }
 
-function getComponentBlock(componentName: string) {
-	return getBlockInstance({ componentName: componentName })
+function getComponentBlock(componentName: string, isStudioComponent: boolean = false) {
+	return getBlockInstance({ componentName: componentName, isStudioComponent: isStudioComponent, blockName: componentName })
 }
 
 function getRootBlock(): Block {
@@ -84,6 +88,8 @@ function getBlockCopyWithoutParent(block: BlockOptions | Block) {
 	const rawBlock = toRaw(block)
 	const blockCopy = deepCloneObject(rawBlock, ["parentBlock"]) as BlockOptions
 	delete blockCopy.parentBlock
+	delete blockCopy.repeaterDataItem
+	delete blockCopy.componentContext
 
 	blockCopy.children = blockCopy.children?.map((child) => getBlockCopyWithoutParent(child))
 
@@ -188,6 +194,39 @@ function isObjectEmpty(obj: object | null | undefined) {
 	return Object.keys(obj).length === 0
 }
 
+function getValueFromObject(obj: object | null | undefined, key: string) {
+	if (isObjectEmpty(obj)) return undefined
+	const data = Object.assign({}, obj)
+	const value = key
+		.split(".")
+		.reduce(
+			(d: Record<string, any> | null, key) => (d && typeof d === "object" ? d[key] : null),
+			data as Record<string, any>,
+		)
+	return value
+}
+
+function setValueInObject(obj: Record<string, any>, key: string, value: any) {
+	if (isObjectEmpty(obj)) return
+
+	const propertyPath = key.split(".")
+	if (propertyPath.length === 1) {
+		// top level key
+		obj[key] = value
+	} else {
+		const targetProperty = propertyPath.pop()!
+		// navigate to the parent object
+		for (const key of propertyPath) {
+			if (!obj[key] || typeof obj[key] !== "object") {
+				obj[key] = {}
+			}
+			obj = obj[key]
+		}
+		// set the value on the parent object
+		obj[targetProperty] = value
+	}
+}
+
 function isJSONString(str: string) {
 	try {
 		jsonToJs(str)
@@ -218,12 +257,13 @@ function jsToJson(obj: ObjectLiteral): string {
 }
 
 function jsonToJs(json: string): any {
+	const registeredComponents = window.__APP_COMPONENTS__ || {}
 	const reviver = (_key: string, value: any) => {
 		// Convert functions back to functions
 		if (typeof value === "string" && value.startsWith("function")) {
 			// provide access to render function & frappeUI lib for editing props
 			const newFunc = new Function("scope", `with(scope) { return ${value}; }`)
-			return newFunc({"h": h, "frappeUI": frappeUI})
+			return newFunc({"h": h, ...registeredComponents})
 		}
 		return value
 	}
@@ -299,6 +339,28 @@ function getAutocompleteValues(data: SelectOption[]) {
 	return (data || []).map((d) => d["value"])
 }
 
+function getParamsObj(params: { key: string; value: string }[]) {
+	const paramsObj: { [key: string]: string } = {}
+	params.forEach((param) => {
+		if (param.key) {
+			paramsObj[param.key] = param.value
+		}
+	})
+	return paramsObj
+}
+
+function getParamsArray(params?: string | { [key: string]: string }) {
+	if (!params) return []
+	if (typeof params == "string") {
+		params = JSON.parse(params || "{}")
+	}
+	const paramsArray: { key: string; value: string; name: string }[] = []
+	Object.entries(params!).forEach(([key, value]) => {
+		paramsArray.push({ key, value, name: key })
+	})
+	return paramsArray
+}
+
 const isDynamicValue = (value: string) => {
 	// Check if the prop value is a string and contains a dynamic expression
 	if (typeof value !== "string") return false
@@ -361,6 +423,21 @@ function getEvaluatedFilters(filters: Filters | null = null, context: Expression
 	return evaluatedFilters
 }
 
+function getAPIParams(params: Record<string, any> | string | null = null, context: ExpressionEvaluationContext) {
+	if (!params) return null
+	if (typeof params === "string") {
+		params = JSON.parse(params)
+	}
+	if (params && typeof params === "object") {
+		Object.entries(params).forEach(([key, value]) => {
+			if (isDynamicValue(value)) {
+				params[key] = getDynamicValue(value, context)
+			}
+		})
+	}
+	return params
+}
+
 function evaluateExpression(expression: string, context: ExpressionEvaluationContext) {
 	try {
 		// Replace dot notation with optional chaining
@@ -386,12 +463,18 @@ function evaluateExpression(expression: string, context: ExpressionEvaluationCon
 	}
 }
 
-function executeUserScript(script: string, variables: Record<string, any>, resources: Record<string, any>, repeaterContext?: Record<string, any>) {
+function executeUserScript(
+	script: string,
+	variables: Record<string, any>,
+	resources: Record<string, any>,
+	repeaterContext?: Record<string, any>,
+	componentContext?: Record<string, any>,
+) {
 	try {
 		// Pass variable refs as context so that users can access variables without 'variable.' prefix
 		// eg: - {{ variable_name }} in templates or variable_name.value in scripts
 		const variablesRefs = toRefs(variables)
-		const context = { ...variablesRefs, ...resources, ...repeaterContext }
+		const context = { ...variablesRefs, ...resources, ...repeaterContext, ...componentContext }
 
 		const scriptToExecute = `
 			with (context) {
@@ -447,14 +530,10 @@ async function getDocumentResource(resource: DocumentResource, context: Expressi
 	let docname = resource.document_name
 	if (resource.fetch_document_using_filters && resource.filters) {
 		// fetch the docname based on filters
-		const docList = createListResource({
-			doctype: resource.document_type,
-			fields: ["name"],
-			filters: getEvaluatedFilters(resource.filters, context),
-			auto: true
-		})
-		await docList.list?.promise
-		docname = docList.data?.[0]?.name
+		docname = await call(
+			"studio.api.get_document",
+			{doctype: resource.document_type, filters: getEvaluatedFilters(resource.filters, context) }
+		)
 	}
 
 	return createDocumentResource({
@@ -480,13 +559,16 @@ function getNewResource(resource: Resource, context?: ExpressionEvaluationContex
 				doctype: resource.document_type,
 				fields: fields.length ? fields : "*",
 				filters: getEvaluatedFilters(resource.filters, context),
+				pageLength: resource.limit,
 				auto: true,
+				orderBy: "creation desc",
 				...getTransforms(resource),
 			})
 		case "API Resource":
 			return createResource({
 				url: resource.url,
 				method: resource.method,
+				params: getAPIParams(resource.params, context),
 				auto: true,
 				...getTransforms(resource),
 			})
@@ -682,8 +764,14 @@ function throttle<T extends (...args: any[]) => void>(func: T, wait: number = 10
 	return invoke
 }
 
+function scrub(txt: string | null | undefined) {
+	if (!txt) return ""
+	return txt.replace(/ |-/g, "_").toLowerCase()
+}
+
 export {
 	getBlockString,
+	getBlockObjectCopy as getBlockObject,
 	getBlockInstance,
 	getComponentBlock,
 	getRootBlock,
@@ -697,6 +785,8 @@ export {
 	copyObject,
 	areObjectsEqual,
 	isObjectEmpty,
+	getValueFromObject,
+	setValueInObject,
 	isJSONString,
 	jsToJson,
 	jsonToJs,
@@ -713,6 +803,9 @@ export {
 	findPageWithRoute,
 	// data
 	getAutocompleteValues,
+	getParamsObj,
+	getParamsArray,
+	getAPIParams,
 	isDynamicValue,
 	getDynamicValue,
 	evaluateExpression,
@@ -733,4 +826,5 @@ export {
 	setClipboardData,
 	getErrorMessage,
 	throttle,
+	scrub,
 }

@@ -1,5 +1,5 @@
 <template>
-	<div class="h-screen flex-col overflow-hidden bg-white">
+	<div class="isolate h-screen flex-col overflow-hidden bg-white">
 		<div
 			class="toolbar sticky top-0 z-10 flex h-14 items-center justify-between bg-white px-3 py-2 shadow-sm"
 		>
@@ -21,32 +21,50 @@
 		<div class="flex h-full flex-col items-center px-20 py-10">
 			<div class="flex w-full flex-row justify-between">
 				<div class="text-lg font-semibold text-gray-800">All Apps</div>
-				<TextInput
-					class="w-48"
-					placeholder="Search"
-					type="text"
-					variant="outline"
-					autofocus
-					@input="(e: Event) => (searchFilter = (e.target as HTMLInputElement).value)"
-				>
-					<template #prefix>
-						<FeatherIcon name="search" class="h-4 w-4 text-gray-500" />
-					</template>
-				</TextInput>
+				<div class="relative flex">
+					<Input
+						class="w-48"
+						type="text"
+						variant="outline"
+						placeholder="Search"
+						v-model="searchFilter"
+						autofocus
+						@input="
+							(value: string) => {
+								searchFilter = value
+							}
+						"
+					>
+						<template #prefix>
+							<FeatherIcon name="search" class="h-4 w-4 text-gray-500" />
+						</template>
+					</Input>
+				</div>
 			</div>
-			<div class="mt-5 grid w-full grid-cols-5 items-start gap-5">
-				<router-link
-					class="flex flex-col justify-center gap-1 rounded-lg border-2 p-5"
-					v-for="app in appList"
-					:to="{ name: 'StudioApp', params: { appID: app.name } }"
-					:key="app.name"
-				>
-					<div class="font-semibold text-gray-800">{{ app.app_title }}</div>
-					<UseTimeAgo v-slot="{ timeAgo }" :time="app.modified">
-						<p class="mt-1 block text-xs text-gray-500">Edited {{ timeAgo }}</p>
-					</UseTimeAgo>
-				</router-link>
-			</div>
+
+			<section class="mt-5 w-full">
+				<div v-if="!appList.length && !searchFilter" class="col-span-full">
+					<p class="mt-4 text-base text-gray-500">
+						You don't have any apps yet. Click on the "+ New App" button to create a new app
+					</p>
+				</div>
+				<div v-else-if="!appList.length" class="col-span-full">
+					<p class="mt-4 text-base text-gray-500">No matching apps found</p>
+				</div>
+				<div v-else class="grid w-full grid-cols-5 items-start gap-5">
+					<router-link
+						class="flex flex-col justify-center gap-1 rounded-lg border-2 p-5"
+						v-for="app in appList"
+						:to="{ name: 'StudioApp', params: { appID: app.name } }"
+						:key="app.name"
+					>
+						<div class="font-semibold text-gray-800">{{ app.app_title }}</div>
+						<UseTimeAgo v-slot="{ timeAgo }" :time="app.creation">
+							<p class="mt-1 block text-xs text-gray-500">Created {{ timeAgo }}</p>
+						</UseTimeAgo>
+					</router-link>
+				</div>
+			</section>
 		</div>
 
 		<Dialog
@@ -54,19 +72,39 @@
 			:options="{
 				title: 'New App',
 				width: 'md',
-				actions: [
-					{
-						label: 'Create',
-						variant: 'solid',
-						onClick: () => createStudioApp(newApp),
-					},
-				],
 			}"
+			@after-leave="
+				() => {
+					newApp = { ...emptyAppState }
+					appCreationError = ''
+				}
+			"
 		>
 			<template #body-content>
 				<div class="flex flex-col gap-3">
-					<FormControl label="App Title" type="text" variant="outline" v-model="newApp.app_title" />
+					<FormControl
+						label="Title"
+						type="text"
+						variant="outline"
+						v-model="newApp.app_title"
+						@input="setAppFields"
+						:required="true"
+					/>
 					<FormControl label="App Route" type="text" variant="outline" v-model="newApp.route" />
+					<FormControl
+						label="App Name"
+						type="text"
+						variant="outline"
+						v-model="newApp.app_name"
+						:placeholder="newApp.app_name_placeholder"
+					/>
+				</div>
+			</template>
+
+			<template #actions>
+				<div class="space-y-1">
+					<ErrorMessage class="mb-2" :message="appCreationError" />
+					<Button variant="solid" label="Create" @click="() => createStudioApp(newApp)" class="w-full" />
 				</div>
 			</template>
 		</Dialog>
@@ -75,12 +113,13 @@
 
 <script setup lang="ts">
 import { ref } from "vue"
-import { Dialog } from "frappe-ui"
+import { Dialog, FormControl } from "frappe-ui"
 import { useRouter } from "vue-router"
 import { studioApps } from "@/data/studioApps"
 import { UseTimeAgo } from "@vueuse/components"
+import Input from "@/components/Input.vue"
 import StudioLogo from "@/components/Icons/StudioLogo.vue"
-import { NewStudioApp, StudioApp } from "@/types/Studio/StudioApp"
+import type { NewStudioApp, StudioApp } from "@/types/Studio/StudioApp"
 import session from "@/utils/session"
 import { watchDebounced } from "@vueuse/core"
 
@@ -88,6 +127,8 @@ const showDialog = ref(false)
 const emptyAppState = {
 	app_title: "",
 	route: "",
+	app_name: "",
+	app_name_placeholder: "",
 }
 const newApp = ref({ ...emptyAppState })
 const router = useRouter()
@@ -106,16 +147,29 @@ const fetchApps = () => {
 
 watchDebounced(searchFilter, fetchApps, { debounce: 300, immediate: true })
 
+const appCreationError = ref("")
 const createStudioApp = (app: NewStudioApp) => {
-	studioApps.insert
-		.submit({
+	studioApps.insert.submit(
+		{
 			app_title: app.app_title,
 			route: app.route,
-		})
-		.then((res: StudioApp) => {
-			showDialog.value = false
-			newApp.value = { ...emptyAppState }
-			router.push({ name: "StudioApp", params: { appID: res.name } })
-		})
+			app_name: app.app_name,
+		},
+		{
+			onSuccess(res: StudioApp) {
+				showDialog.value = false
+				appCreationError.value = ""
+				router.push({ name: "StudioApp", params: { appID: res.name } })
+			},
+			onError(error: any) {
+				appCreationError.value = error.messages.join(", ")
+			},
+		},
+	)
+}
+
+function setAppFields(e: Event) {
+	const kebabCasedTitle = (e.target as HTMLInputElement).value.toLowerCase().replace(/\s+/g, "-")
+	newApp.value.route = newApp.value.app_name_placeholder = kebabCasedTitle
 }
 </script>

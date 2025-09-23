@@ -1,5 +1,11 @@
 <template>
+	<StudioComponentRenderer
+		v-if="block.isStudioComponent"
+		:studioComponent="block"
+		:evaluationContext="evaluationContext"
+	/>
 	<component
+		v-else
 		ref="componentRef"
 		v-show="showComponent"
 		:is="componentName"
@@ -29,16 +35,28 @@
 
 <script setup lang="ts">
 import Block from "@/utils/block"
-import { computed, onMounted, ref, useAttrs, inject } from "vue"
+import { computed, onMounted, ref, useAttrs, inject, type ComputedRef, toRefs } from "vue"
 import type { ComponentPublicInstance } from "vue"
 import { useRouter, useRoute } from "vue-router"
 import { createResource } from "frappe-ui"
-import { getComponentRoot, isDynamicValue, getDynamicValue, isHTML, executeUserScript } from "@/utils/helpers"
+import {
+	getComponentRoot,
+	isDynamicValue,
+	getDynamicValue,
+	isHTML,
+	executeUserScript,
+	getValueFromObject,
+	setValueInObject,
+	getAPIParams,
+} from "@/utils/helpers"
 import { useScreenSize } from "@/utils/useScreenSize"
 
 import useAppStore from "@/stores/appStore"
 import { toast } from "vue-sonner"
-import { Field } from "@/types/ComponentEvent"
+import type { Field } from "@/types/ComponentEvent"
+import type { DataResult } from "@/types/Studio/StudioResource"
+
+import StudioComponentRenderer from "@/components/StudioComponentRenderer.vue"
 
 const props = defineProps<{
 	block: Block
@@ -52,21 +70,34 @@ const componentName = computed(() => {
 const componentRef = ref<ComponentPublicInstance | null>(null)
 
 const { currentBreakpoint } = useScreenSize()
-const styles = computed(() => props.block.getStyles(currentBreakpoint.value))
+const styles = computed(() => {
+	const _styles = props.block.getStyles(currentBreakpoint.value)
+	Object.entries(_styles).forEach(([key, value]) => {
+		if (value) {
+			if (isDynamicValue(value.toString())) {
+				_styles[key] = getDynamicValue(value.toString(), evaluationContext.value)
+			}
+		}
+	})
+	return _styles
+})
 const classes = computed(() => {
 	return [attrs.class, ...props.block.getClasses()]
 })
 
-const repeaterContext = inject("repeaterContext", {})
 const store = useAppStore()
+const repeaterContext = inject("repeaterContext", {})
+const componentContext = inject<ComputedRef | null>("componentContext", null)
 
-const getEvaluationContext = () => {
+const evaluationContext = computed(() => {
 	return {
 		...store.variables,
 		...store.resources,
 		...repeaterContext,
+		...componentContext?.value,
+		route: store.routeObject,
 	}
-}
+})
 
 const getComponentProps = () => {
 	if (!props.block || props.block.isRoot()) return []
@@ -76,7 +107,7 @@ const getComponentProps = () => {
 
 	Object.entries(propValues).forEach(([propName, config]) => {
 		if (isDynamicValue(config)) {
-			propValues[propName] = getDynamicValue(config, getEvaluationContext())
+			propValues[propName] = getDynamicValue(config, evaluationContext.value)
 		}
 	})
 	return propValues
@@ -93,8 +124,18 @@ const componentProps = computed(() => {
 // visibility
 const showComponent = computed(() => {
 	if (props.block.visibilityCondition) {
-		const value = getDynamicValue(props.block.visibilityCondition, getEvaluationContext())
-		return typeof value === "string" ? value === "true" : value
+		const value = getDynamicValue(props.block.visibilityCondition, evaluationContext.value)
+		// Handle different return types:
+		// - Boolean: return as-is
+		// - String "true"/"false": convert to boolean
+		// - Other values: check truthiness
+		if (typeof value === "boolean") {
+			return value
+		} else if (typeof value === "string" && (value === "true" || value === "false")) {
+			return value === "true"
+		} else {
+			return value
+		}
 	}
 	return true
 })
@@ -104,43 +145,16 @@ const boundValue = computed({
 	get() {
 		const modelValue = props.block.componentProps.modelValue
 		if (modelValue?.$type === "variable") {
-			// handle nested object properties
-			const propertyPath = modelValue.name.split(".")
-			let value = store.variables
-			// return nested object property value
-			for (const key of propertyPath) {
-				if (value === undefined || value === null) return undefined
-				value = value[key]
-			}
-			return value
+			return getValueFromObject(store.variables, modelValue.name)
 		} else if (isDynamicValue(modelValue)) {
-			return getDynamicValue(modelValue, getEvaluationContext())
+			return getDynamicValue(modelValue, evaluationContext.value)
 		}
 		return modelValue
 	},
 	set(newValue) {
 		const modelValue = props.block.componentProps.modelValue
 		if (modelValue?.$type === "variable") {
-			// update the variable in the store
-			const propertyPath = modelValue.name.split(".")
-			if (propertyPath.length === 1) {
-				// top level variable
-				store.variables[modelValue.name] = newValue
-			} else {
-				// nested object properties
-				const targetProperty = propertyPath.pop()!
-				let obj = store.variables
-
-				// navigate to the parent object
-				for (const key of propertyPath) {
-					if (!obj[key] || typeof obj[key] !== "object") {
-						obj[key] = {}
-					}
-					obj = obj[key]
-				}
-				// set the value on the parent object
-				obj[targetProperty] = newValue
-			}
+			setValueInObject(store.variables, modelValue.name, newValue)
 		} else {
 			// update the prop directly if not bound to a variable
 			props.block.setProp("modelValue", newValue)
@@ -151,6 +165,7 @@ const boundValue = computed({
 // events
 const router = useRouter()
 const route = useRoute()
+
 const componentEvents = computed(() => {
 	const events: Record<string, Function | undefined> = {}
 	Object.entries(props.block.componentEvents).forEach(([eventName, event]) => {
@@ -178,6 +193,9 @@ const componentEvents = computed(() => {
 						createResource({
 							url: event.api_endpoint,
 							auto: true,
+							params: getAPIParams(event.params, evaluationContext.value),
+							onSuccess: handleSuccess(event),
+							onError: handleError(event),
 						})
 					}
 				}
@@ -185,7 +203,7 @@ const componentEvents = computed(() => {
 				return () => {
 					const fields: Record<string, any> = {}
 					event.fields.forEach((field: Field) => {
-						fields[field.field] = store.variables[field.value]
+						fields[field.field] = getValueFromObject(store.variables, field.value)
 					})
 					createResource({
 						url: "frappe.client.insert",
@@ -196,25 +214,19 @@ const componentEvents = computed(() => {
 								...fields,
 							},
 						},
-						onSuccess() {
-							if (event.success_message) {
-								toast.success(event.success_message)
-							} else {
-								toast.success(`${event.doctype} saved successfully`)
-							}
-						},
-						onError() {
-							if (event.error_message) {
-								toast.error(event.error_message)
-							} else {
-								toast.error(`Error saving ${event.doctype}`)
-							}
-						},
+						onSuccess: handleSuccess(event),
+						onError: handleError(event),
 					}).submit()
 				}
 			} else if (event.action === "Run Script") {
 				return () => {
-					executeUserScript(event.script, store.variables, store.resources, repeaterContext)
+					executeUserScript(
+						event.script,
+						store.variables,
+						store.resources,
+						repeaterContext,
+						componentContext?.value,
+					)
 				}
 			}
 		}
@@ -223,6 +235,57 @@ const componentEvents = computed(() => {
 
 	return events
 })
+
+// Helper functions for handling success and error responses
+const handleSuccess = (event: any) => (data: DataResult) => {
+	if (event.on_success === "script") {
+		if (event.on_success_script) {
+			const variablesRefs = toRefs(store.variables)
+			const context = {
+				...variablesRefs,
+				...store.resources,
+				...repeaterContext,
+				...componentContext?.value,
+				data,
+			}
+			const successFn = new Function(
+				"ctx",
+				`with(ctx) {
+					${event.on_success_script}
+					return onSuccess(data);
+				}`,
+			)
+			return successFn(context)
+		}
+	} else {
+		toast.success(event.success_message || `${event.doctype} created successfully`)
+	}
+}
+
+const handleError = (event: any) => (error: any) => {
+	if (event.on_error === "script") {
+		if (event.on_error_script) {
+			const variablesRefs = toRefs(store.variables)
+			const context = {
+				...variablesRefs,
+				...store.resources,
+				...repeaterContext,
+				...componentContext?.value,
+				error,
+			}
+			const errorFn = new Function(
+				"ctx",
+				`with(ctx) {
+					${event.on_error_script}
+					return onError(error);
+				}`,
+			)
+			return errorFn(context)
+		}
+	} else {
+		toast.error(event.error_message || `Error creating ${event.doctype}`)
+	}
+}
 
 function getPageRoute(appRoute: string, page: string) {
 	// extract page route from full page route

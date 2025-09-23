@@ -11,7 +11,7 @@
 					<div class="font-mono text-xs font-semibold text-pink-700">{{ watcher.source }}</div>
 				</div>
 				<div
-					class="invisible -mt-1 ml-auto self-start text-gray-600 group-hover/variable:visible has-[.active-item]:visible"
+					class="invisible -mt-1 self-start text-gray-600 group-hover/variable:visible has-[.active-item]:visible"
 				>
 					<Dropdown :options="getWatcherMenu(watcher)" trigger="click">
 						<template v-slot="{ open }">
@@ -34,7 +34,7 @@
 				v-model="showWatcherDialog"
 				:options="{
 					title: pageWatcher.name ? 'Edit Watcher' : 'Add Watcher',
-					size: '2xl',
+					size: '3xl',
 				}"
 				@after-leave="
 					() => {
@@ -63,12 +63,14 @@
 								}
 							"
 						/>
-						<CodeEditor
+						<Code
 							label="Script"
-							type="JavaScript"
-							height="250px"
-							:showLineNumbers="true"
+							language="javascript"
+							height="400px"
+							maxHeight="400px"
 							v-model="pageWatcher.script"
+							:emitOnChange="true"
+							:completions="getCompletions"
 						/>
 						<FormControl
 							type="checkbox"
@@ -104,17 +106,20 @@ import { ref } from "vue"
 import { createListResource, Dialog, FormControl } from "frappe-ui"
 import EmptyState from "@/components/EmptyState.vue"
 import CollapsibleSection from "@/components/CollapsibleSection.vue"
-import CodeEditor from "@/components/CodeEditor.vue"
-import { StudioPage } from "@/types/Studio/StudioPage"
-import { SelectOption } from "@/types"
-import { StudioPageWatcher } from "@/types/Studio/StudioPageWatcher"
+import Code from "@/components/Code.vue"
+import type { StudioPage } from "@/types/Studio/StudioPage"
+import type { SelectOption } from "@/types"
+import type { StudioPageWatcher } from "@/types/Studio/StudioPageWatcher"
 import useStudioStore from "@/stores/studioStore"
 import { toast } from "vue-sonner"
 import { confirm } from "@/utils/helpers"
+import { useStudioCompletions } from "@/utils/useStudioCompletions"
 
 const props = defineProps<{
 	page: StudioPage
 }>()
+
+const getCompletions = useStudioCompletions(true)
 
 const studioPageWatchers = createListResource({
 	doctype: "Studio Page Watcher",

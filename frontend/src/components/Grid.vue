@@ -26,7 +26,6 @@
 				>
 					{{ column.label }}
 				</div>
-				<div class="p-1 text-center text-base text-gray-900"></div>
 			</div>
 
 			<!-- Rows -->
@@ -37,7 +36,7 @@
 							class="grid-row grid cursor-pointer items-center border-b border-gray-100 bg-white last:rounded-b last:border-b-0"
 							:style="{ gridTemplateColumns: gridTemplateColumns }"
 						>
-							<div class="border-r text-center">
+							<div class="flex h-full items-center justify-center border-r">
 								<Checkbox
 									size="sm"
 									class="cursor-pointer duration-300"
@@ -56,6 +55,19 @@
 									class="text-sm text-gray-800"
 									@update:modelValue="(e) => column.onChange && column.onChange(e, index)"
 								/>
+								<Code
+									v-else-if="column.fieldtype === 'Code'"
+									language="javascript"
+									v-model="row[column.fieldname]"
+									:showLineNumbers="false"
+									:borderless="true"
+									:completions="column.completions || null"
+									:emitOnChange="true"
+									@change="
+										(e: Event) =>
+											column.onChange && column.onChange((e.target as HTMLInputElement).value, index)
+									"
+								/>
 								<FormControl
 									v-else
 									:type="column.fieldtype.toLowerCase()"
@@ -70,9 +82,6 @@
 									"
 								/>
 							</div>
-							<button @click="" class="flex items-center justify-center">
-								<FeatherIcon name="edit-2" class="h-3 w-3 text-gray-800" />
-							</button>
 						</div>
 					</template>
 				</Draggable>
@@ -95,7 +104,7 @@ import Draggable from "vuedraggable"
 
 import Link from "@/components/Link.vue"
 import { generateId } from "@/utils/helpers"
-import { GridColumn, GridRow } from "@/types/doctype"
+import type { GridColumn, GridRow } from "@/types/doctype"
 
 const props = defineProps<{
 	label?: string
@@ -111,15 +120,12 @@ const gridTemplateColumns = computed(() => {
 	// for the checkbox & sr no. columns
 	let columns = "0.75fr 0.75fr"
 	columns += " " + props.columns.map((col) => `minmax(0, ${col.width || 2}fr)`).join(" ")
-	// for the edit button column
-	columns += " 0.75fr"
-
 	return columns
 })
 
 const allRowsSelected = computed(() => {
-	if (!rows.length) return false
-	return rows.length === selectedRows.size
+	if (rows.value.length === 0 || selectedRows.size === 0) return false
+	return rows.value.length === selectedRows.size
 })
 
 const showDeleteBtn = computed(() => selectedRows.size > 0)
@@ -166,6 +172,7 @@ const deleteRows = () => {
 .grid-row input:focus,
 .grid-row input:hover {
 	box-shadow: none;
+	outline: none;
 }
 
 .grid-row input:focus-within {

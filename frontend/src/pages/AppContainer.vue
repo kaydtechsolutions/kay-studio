@@ -12,7 +12,7 @@ import AppComponent from "@/components/AppComponent.vue"
 
 import useAppStore from "@/stores/appStore"
 
-import { StudioPage } from "@/types/Studio/StudioPage"
+import type { StudioPage } from "@/types/Studio/StudioPage"
 import Block from "@/utils/block"
 
 const store = useAppStore()
@@ -37,10 +37,12 @@ watch(
 		if (currentPath) {
 			page.value = await findPageWithRoute(window.app_name, currentPath)
 			if (!page.value) return
-			await store.setLocalState({ route: route })
 			await store.setPageData(page.value)
 			await store.setPageWatchers(page.value)
-			const blocks = jsonToJs(page.value?.blocks)
+
+			const blocks = window.is_preview
+				? jsonToJs(page.value?.draft_blocks || page.value?.blocks)
+				: jsonToJs(page.value?.blocks)
 			if (blocks) {
 				rootBlock.value = getBlockInstance(blocks[0])
 			}

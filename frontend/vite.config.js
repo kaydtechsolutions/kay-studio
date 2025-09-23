@@ -13,13 +13,18 @@ export default defineConfig({
 		// Required for the app renderer running on webserver port
 		// https://vite.dev/guide/backend-integration
 		origin: "http://127.0.0.1:8080",
+		allowedHosts: true,
+		watch: {
+			// unplugin-vue-components generates this file which causes HMR while building other studio apps
+			ignored: ["**/components.d.ts", "**/auto-imports.d.ts"],
+		},
 	},
 	plugins: [
 		frappeui({
 			frappeProxy: true,
 			lucideIcons: true,
 		}),
-		vue()
+		vue(),
 	],
 	resolve: {
 		alias: {

@@ -18,7 +18,7 @@
 
 		<div
 			class="fixed flex gap-40"
-			:class="canvasStore.editingMode === 'page' ? 'h-full': ''"
+			:class="canvasStore.editingMode === 'page' ? 'h-full' : ''"
 			ref="canvas"
 			@mouseenter="isCanvasActive = true"
  			@mouseleave="isCanvasActive = false"
@@ -29,7 +29,7 @@
 		>
 
 			<div
-				class="canvas relative flex h-full bg-white shadow-2xl contain-layout"
+				class="canvas relative flex h-full bg-surface-white shadow-2xl contain-layout"
 				:style="{
 					...canvasStyles,
 					background: canvasProps.background,
@@ -55,6 +55,7 @@
 					:block="rootComponent"
 					:key="rootComponent.componentId"
 					:breakpoint="breakpoint.device"
+					:isEditingComponent="canvasStore.editingMode === 'component'"
 				/>
 			</div>
 		</div>
@@ -132,7 +133,7 @@ import setPanAndZoom from "@/utils/panAndZoom"
 import Block from "@/utils/block"
 import { useCanvasDropZone } from "@/utils/useCanvasDropZone"
 import { useCanvasUtils } from "@/utils/useCanvasUtils"
-import { BreakpointConfig, CanvasHistory } from "@/types/StudioCanvas"
+import type { BreakpointConfig, CanvasHistory } from "@/types/StudioCanvas"
 import type { Slot } from "@/types"
 import { useCanvasEvents } from "@/utils/useCanvasEvents"
 
@@ -232,13 +233,20 @@ const selectedBlocks = computed(() => {
 	)
 }) as Ref<Block[]>
 
-function selectBlock(block: Block, e: MouseEvent | null, multiSelect = false) {
+function selectBlock(block: Block, e: MouseEvent | null, multiSelect = false, setBreakpoint = true) {
 	if (store.settingPage) return
 
 	selectBlockById(block.componentId, e, multiSelect)
-	if (e) {
+	if (setBreakpoint && e) {
 		const { breakpoint } = getBlockInfo(e)
 		setActiveBreakpoint(breakpoint)
+	}
+
+	if (block.isContainer()) {
+		store.studioLayout.leftPanelActiveTab = "Layers"
+		store.studioLayout.rightPanelActiveTab = "Styles"
+	} else {
+		store.studioLayout.rightPanelActiveTab = "Properties"
 	}
 }
 
@@ -253,6 +261,12 @@ function selectBlockById(blockId: string, e: MouseEvent | null, multiSelect = fa
 function clearSelection() {
 	selectedBlockIds.value = new Set()
 }
+
+const isRootSelected = computed(() => {
+	return (
+		selectedBlockIds.value.size === 1 && selectedBlockIds.value.has(rootComponent.value?.componentId || "")
+	)
+})
 
 // slots
 const selectedSlot = ref<Slot | null>()
@@ -319,8 +333,9 @@ onMounted(() => {
 		history as CanvasHistory,
 		getRootBlock,
 		findBlock,
+		selectedSlot,
 	)
-	setPanAndZoom(canvasProps, canvasEl, canvasContainerEl)
+	setPanAndZoom(canvasEl, canvasContainerEl, canvasProps)
 })
 
 function zoomIn() {
@@ -391,6 +406,7 @@ defineExpose({
 	selectBlock,
 	selectBlockById,
 	clearSelection,
+	isRootSelected,
 	// slots
 	selectedSlot,
 	selectSlot,
