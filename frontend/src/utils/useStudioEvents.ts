@@ -141,6 +141,30 @@ export function useStudioEvents() {
 			store.mode = "select"
 			return
 		}
+
+		if (e.key === "=" && isCtrlOrCmd(e)) {
+			e.preventDefault()
+			if (canvasStore.activeCanvas?.zoomIn) {
+				canvasStore.activeCanvas.zoomIn()
+			}
+			return
+		}
+
+		if (e.key === "-" && isCtrlOrCmd(e)) {
+			e.preventDefault()
+			if (canvasStore.activeCanvas?.zoomOut) {
+				canvasStore.activeCanvas.zoomOut()
+			}
+			return
+		}
+
+		if (e.key === "0" && isCtrlOrCmd(e)) {
+			e.preventDefault()
+			if (canvasStore.activeCanvas?.setScaleAndTranslate) {
+				canvasStore.activeCanvas.setScaleAndTranslate()
+			}
+			return
+		}
 	})
 }
 

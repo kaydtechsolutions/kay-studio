@@ -81,13 +81,13 @@
 			class="fixed bottom-12 left-[50%] z-40 flex translate-x-[-50%] cursor-default items-center justify-center gap-3 rounded-lg bg-white px-4 py-2 text-center text-sm font-semibold text-gray-600 shadow-md"
 			v-show="!canvasProps.panning"
 		>
-			<!-- Zoom Out -->
-			<span title="Zoom Out (-)">
-				<FeatherIcon name="minus" class="h-4 w-4 cursor-pointer" @click="zoomOut" />
-			</span>
-
 			<!-- Zoom Percentage -->
 			{{ Math.round(canvasProps.scale * 100) + "%" }}
+
+			<!-- Zoom Out -->
+				<span title="Zoom Out (-)">
+				<FeatherIcon name="minus" class="h-4 w-4 cursor-pointer" @click="zoomOut" />
+			</span>
 
 			<!-- Zoom In -->
 			<span title="Zoom In (+)">
@@ -335,37 +335,6 @@ function zoomOut() {
 }
 
 
-function handleKeyDown(e: KeyboardEvent) {
-	const tag = (e.target as HTMLElement).tagName
-
-	if (["INPUT", "TEXTAREA"].includes(tag) || (e.target as HTMLElement).isContentEditable) return
-
-	if (!isCanvasActive.value) return
-	switch (e.key) {
-		case "+":
-		case "=":
-			e.preventDefault()
-			zoomIn()
-			break
-		case "-":
-		case "_":
-			e.preventDefault()
-			zoomOut()
-			break
-		case "0":
-			e.preventDefault()
-			setScaleAndTranslate()
-			break
-	}
-}
-
-onMounted(() => {
-	window.addEventListener("keydown", handleKeyDown)
-})
-
-onBeforeUnmount(() => {
-	window.removeEventListener("keydown", handleKeyDown)
-})
 
 defineExpose({
 	history,
@@ -376,6 +345,10 @@ defineExpose({
 	removeBlock,
 	getRootBlock,
 	setRootBlock,
+	// zoom methods
+	zoomIn,
+	zoomOut,
+	setScaleAndTranslate,
 	// block hover & selection
 	hoveredBlock,
 	hoveredBreakpoint,
