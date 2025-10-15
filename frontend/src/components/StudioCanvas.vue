@@ -20,6 +20,8 @@
 			class="fixed flex gap-40"
 			:class="canvasStore.editingMode === 'page' ? 'h-full' : ''"
 			ref="canvas"
+			@mouseenter="isCanvasActive = true"
+ 			@mouseleave="isCanvasActive = false"
 			:style="{
 				transformOrigin: 'top center',
 				transform: `scale(${canvasProps.scale}) translate(${canvasProps.translateX}px, ${canvasProps.translateY}px)`,
@@ -76,22 +78,35 @@
 		</div>
 
 		<div
-			class="fixed bottom-12 left-[50%] z-40 flex translate-x-[-50%] cursor-default items-center justify-center gap-2 rounded-lg bg-white px-3 py-2 text-center text-sm font-semibold text-gray-600 shadow-md"
+			class="fixed bottom-12 left-[50%] z-40 flex translate-x-[-50%] cursor-default items-center justify-center gap-3 rounded-lg bg-white px-4 py-2 text-center text-sm font-semibold text-gray-600 shadow-md"
 			v-show="!canvasProps.panning"
 		>
+			<!-- Zoom Percentage -->
 			{{ Math.round(canvasProps.scale * 100) + "%" }}
-			<div class="ml-2 cursor-pointer" @click="setScaleAndTranslate">
-				<FitScreenIcon />
-			</div>
+
+			<!-- Zoom Out -->
+				<span title="Zoom Out (-)">
+				<FeatherIcon name="minus" class="h-4 w-4 cursor-pointer" @click="zoomOut" />
+			</span>
+
+			<!-- Zoom In -->
+			<span title="Zoom In (+)">
+				<FeatherIcon name="plus" class="h-4 w-4 cursor-pointer" @click="zoomIn" />
+			</span>
+
+			<!-- Fit to Screen -->
+			<span title="Fit to Screen (0)" >
+				<FeatherIcon name="maximize" class="h-4 w-4 cursor-pointer" @click="setScaleAndTranslate"/>
+			</span>
+
 		</div>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { Ref, ref, watch, reactive, computed, onMounted, provide } from "vue"
+import { Ref, ref, watch, reactive, computed, onMounted, provide, onBeforeUnmount } from "vue"
 import { LoadingIndicator } from "frappe-ui"
 import StudioComponent from "@/components/StudioComponent.vue"
-import FitScreenIcon from "@/components/Icons/FitScreenIcon.vue"
 
 import useStudioStore from "@/stores/studioStore"
 import useCanvasStore from "@/stores/canvasStore"
@@ -121,6 +136,7 @@ const canvasContainer = ref(null)
 const canvas = ref<HTMLElement | null>(null)
 const overlay = ref(null)
 const showBlocks = ref(false)
+const isCanvasActive = ref(false)
 
 const canvasProps = reactive({
 	overlayElement: null,
@@ -282,7 +298,15 @@ onMounted(() => {
 	const canvasContainerEl = canvasContainer.value as unknown as HTMLElement
 	const canvasEl = canvas.value as unknown as HTMLElement
 	canvasProps.overlayElement = overlay.value
-	setScaleAndTranslate()
+
+	// Restore saved zoom level
+	const savedZoom = parseFloat(localStorage.getItem("studioCanvasZoom") || "1")
+	const isZoomRestored = !isNaN(savedZoom) && savedZoom >= 0.2 && savedZoom <= 2
+	if (isZoomRestored) {
+		canvasProps.scale = savedZoom
+	}
+
+	setScaleAndTranslate(false, !isZoomRestored)
 	showBlocks.value = true
 	setupHistory()
 	useCanvasEvents(
@@ -296,6 +320,22 @@ onMounted(() => {
 	setPanAndZoom(canvasEl, canvasContainerEl, canvasProps)
 })
 
+function zoomIn() {
+	if (canvasProps.scale < 2) {
+		canvasProps.scale = +(canvasProps.scale + 0.1).toFixed(2)
+		localStorage.setItem("studioCanvasZoom", canvasProps.scale.toString())
+	}
+}
+
+function zoomOut() {
+	if (canvasProps.scale > 0.2) {
+		canvasProps.scale = +(canvasProps.scale - 0.1).toFixed(2)
+		localStorage.setItem("studioCanvasZoom", canvasProps.scale.toString())
+	}
+}
+
+
+
 defineExpose({
 	history,
 	rootComponent,
@@ -305,6 +345,10 @@ defineExpose({
 	removeBlock,
 	getRootBlock,
 	setRootBlock,
+	// zoom methods
+	zoomIn,
+	zoomOut,
+	setScaleAndTranslate,
 	// block hover & selection
 	hoveredBlock,
 	hoveredBreakpoint,
