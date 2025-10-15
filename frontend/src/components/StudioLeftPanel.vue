@@ -71,7 +71,7 @@
 </template>
 
 <script setup lang="ts">
-import { watch, computed, nextTick } from "vue"
+import { watch, computed, nextTick, onMounted } from "vue"
 import { Tooltip, FeatherIcon } from "frappe-ui"
 
 import PagesPanel from "@/components/PagesPanel.vue"
@@ -115,10 +115,15 @@ const canvasStore = useCanvasStore()
 const activeTab = computed(() => store.studioLayout.leftPanelActiveTab)
 
 const setActiveTab = (tab: LeftPanelOptions) => {
-	if (!store.studioLayout.showLeftPanel) {
+	if (store.studioLayout.leftPanelActiveTab === tab && store.studioLayout.showLeftPanel) {
+		store.studioLayout.showLeftPanel = false
+		localStorage.setItem("studioLeftPanelVisible", "false")
+	} else {
+		store.studioLayout.leftPanelActiveTab = tab
 		store.studioLayout.showLeftPanel = true
+		localStorage.setItem("studioLeftPanelActiveTab", tab)
+		localStorage.setItem("studioLeftPanelVisible", "true")
 	}
-	store.studioLayout.leftPanelActiveTab = tab
 }
 
 // moved out of ComponentLayers for performance
@@ -168,4 +173,15 @@ watch(
 	},
 	{ deep: true },
 )
+
+onMounted(() => {
+	const savedTab = localStorage.getItem("studioLeftPanelActiveTab")
+	const isVisible = localStorage.getItem("studioLeftPanelVisible") === "true"
+
+	if (savedTab) {
+		store.studioLayout.leftPanelActiveTab = savedTab as LeftPanelOptions
+		store.studioLayout.showLeftPanel = isVisible
+	}
+})
+
 </script>
