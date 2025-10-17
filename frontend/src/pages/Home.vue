@@ -43,22 +43,40 @@
 			</div>
 
 			<section class="mt-5 w-full">
-				<div v-if="!appList.length && !searchFilter" class="col-span-full">
+				<div v-if="!studioApps.data?.length && !searchFilter" class="col-span-full">
 					<p class="mt-4 text-base text-gray-500">
 						You don't have any apps yet. Click on the "+ New App" button to create a new app
 					</p>
 				</div>
-				<div v-else-if="!appList.length" class="col-span-full">
+				<div v-else-if="!studioApps.data?.length" class="col-span-full">
 					<p class="mt-4 text-base text-gray-500">No matching apps found</p>
 				</div>
 				<div v-else class="grid w-full grid-cols-5 items-start gap-5">
 					<router-link
-						class="flex flex-col justify-center gap-1 rounded-lg border-2 p-5"
-						v-for="app in appList"
+						class="flex flex-col justify-center gap-1 rounded-lg border-2 p-4"
+						v-for="app in studioApps.data"
 						:to="{ name: 'StudioApp', params: { appID: app.name } }"
 						:key="app.name"
 					>
-						<div class="font-semibold text-gray-800">{{ app.app_title }}</div>
+						<div class="flex flex-row justify-between">
+							<div class="font-semibold text-gray-800">{{ app.app_title }}</div>
+							<Dropdown
+								:options="[
+									{ label: 'View in Desk', onClick: () => openInDesk(app), icon: 'arrow-up-right' },
+									{
+										label: 'Delete',
+										onClick: () => store.deleteApp(app.name, app.app_title),
+										icon: 'trash-2',
+									},
+								]"
+								size="sm"
+								placement="right"
+							>
+								<template v-slot="{ open }">
+									<Button icon="more-horizontal" variant="ghost" />
+								</template>
+							</Dropdown>
+						</div>
 						<UseTimeAgo v-slot="{ timeAgo }" :time="app.creation">
 							<p class="mt-1 block text-xs text-gray-500">Created {{ timeAgo }}</p>
 						</UseTimeAgo>
@@ -122,6 +140,8 @@ import StudioLogo from "@/components/Icons/StudioLogo.vue"
 import type { NewStudioApp, StudioApp } from "@/types/Studio/StudioApp"
 import session from "@/utils/session"
 import { watchDebounced } from "@vueuse/core"
+import useStudioStore from "@/stores/studioStore"
+import { openInDesk } from "@/utils/helpers"
 
 const showDialog = ref(false)
 const emptyAppState = {
@@ -132,17 +152,19 @@ const emptyAppState = {
 }
 const newApp = ref({ ...emptyAppState })
 const router = useRouter()
+const store = useStudioStore()
 
 const searchFilter = ref("")
-const appList = ref<StudioApp[]>([])
 
 const fetchApps = () => {
-	appList.value = studioApps.data
+	const filters = {} as any
 	if (searchFilter.value) {
-		appList.value = studioApps.data?.filter((app: StudioApp) =>
-			app.app_title.toLowerCase().includes(searchFilter.value?.toLowerCase()),
-		)
+		filters["app_title"] = ["like", `%${searchFilter.value}%`]
 	}
+	studioApps.update({
+		filters,
+	})
+	studioApps.fetch()
 }
 
 watchDebounced(searchFilter, fetchApps, { debounce: 300, immediate: true })

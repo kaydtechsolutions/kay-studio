@@ -3,8 +3,28 @@
 		<div class="absolute left-3 flex items-center justify-center gap-5">
 			<Dropdown
 				:options="[
-					{ label: 'Back to Dashboard', icon: 'arrow-left', onClick: () => $router.push({ name: 'Home' }) },
-					{ label: 'Logout', icon: 'log-out', onClick: () => session.logout() },
+					{
+						group: 'Studio',
+						hideLabel: true,
+						items: [
+							{
+								label: 'Back to Dashboard',
+								icon: 'arrow-left',
+								onClick: () => $router.push({ name: 'Home' }),
+							},
+							{ label: 'View in Desk', onClick: () => openInDesk(store.activeApp!), icon: 'arrow-up-right' },
+							{
+								label: 'Delete App',
+								icon: 'trash-2',
+								onClick: () => store.deleteApp(store.activeApp?.app_name!, store.activeApp?.app_title!),
+							},
+						],
+					},
+					{
+						group: 'More',
+						hideLabel: true,
+						items: [{ label: 'Logout', icon: 'log-out', onClick: () => session.logout() }],
+					},
 				]"
 			>
 				<template v-slot="{ open }">
@@ -128,7 +148,7 @@ import ExportAppDialog from "@/components/ExportAppDialog.vue"
 import type { StudioMode } from "@/types"
 import session from "@/utils/session"
 import LucideArrowUpFromLine from "~icons/lucide/arrow-up-from-line"
-import { isObjectEmpty } from "@/utils/helpers"
+import { isObjectEmpty, openInDesk } from "@/utils/helpers"
 
 const store = useStudioStore()
 const canvasStore = useCanvasStore()
